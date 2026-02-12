@@ -115,8 +115,8 @@ void compiler_close(Compiler *compiler){
     fclose(compiler->f);
     char string[100];
     compiler->_o = find_available_tmp_file("o");
-    // snprintf(string, 100, "bat %s", compiler->_asm);
-    // system(string);
+    snprintf(string, 100, "bat %s", compiler->_asm);
+    system(string);
     snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
     system(string);
     snprintf(string, 100, "yasm -f macho64 %s -o %s", compiler->_asm, compiler->_o);
@@ -301,7 +301,7 @@ char *compiler_eat_expr(Compiler *compiler, AST *ast, int size){
         return strdup(string);
     }else if(ast->type == AST_REG){
         if (is_reg(ast->data.text.value) == 0){
-            AST_Reg reg = reg_to_num(ast->data.text.value);
+            AST_Reg reg = _reg_to_num(ast->data.text.value, ast->typeinfo);
             return change_reg_size(reg.reg, reg.size);
         }
     }else if(ast->type == AST_GT){
@@ -408,7 +408,7 @@ char *compiler_eat_lhs(Compiler *compiler, AST ast, int size){
         }
     }else if(left->type == AST_REG){
         if (is_reg(left->data.text.value) == 0){
-            AST_Reg reg = reg_to_num(left->data.text.value);
+            AST_Reg reg = _reg_to_num(left->data.text.value, left->typeinfo);
             return change_reg_size(reg.reg, reg.size);
         }
     }else if(left->type == AST_REF){
@@ -461,6 +461,7 @@ void compiler_eat_ast(Compiler *compiler, AST ast){
         int typeinfo = ast.typeinfo;
         move(compiler, left, buf, right->typeinfo);
     }else if(ast.type == AST_SYSCALL){
+        compiler_write_text_line(compiler, "mov rax, %s", ast.data.text.value);
         compiler_write_text_line(compiler, "syscall");
     }else if(ast.type == AST_RET){
         compile_end(compiler);
@@ -495,10 +496,16 @@ void compiler_eat_ast(Compiler *compiler, AST ast){
         compiler_write_text(compiler, "%s:\n", strdup(string));
     }else if(ast.type == AST_ADD){
         char *buf = compiler_eat_expr(compiler, ast.data.operation.right, -1);
-        compiler_write_text_line(compiler, "add %s, %s", reg_to_name(ast.data.operation.reg), buf);
+        char *reg = reg_to_name(ast.data.operation.reg);
+        AST_Reg _reg = reg_real_to_num(reg);
+        AST_Reg _buf = reg_real_to_num(buf);
+        compiler_write_text_line(compiler, "add %s, %s", reg, change_reg_size(_buf.reg, _reg.size));
     }else if(ast.type == AST_SUB){
         char *buf = compiler_eat_expr(compiler, ast.data.operation.right, -1);
-        compiler_write_text_line(compiler, "sub %s, %s", reg_to_name(ast.data.operation.reg), buf);
+        char *reg = reg_to_name(ast.data.operation.reg);
+        AST_Reg _reg = reg_real_to_num(reg);
+        AST_Reg _buf = reg_real_to_num(buf);
+        compiler_write_text_line(compiler, "sub %s, %s", reg, change_reg_size(_buf.reg, _reg.size));
     }else if(ast.type == AST_MUL){
         char *buf = compiler_eat_expr(compiler, ast.data.operation.right, -1);
         compiler_write_text_line(compiler, "imul %s, %s", reg_to_name(ast.data.operation.reg), buf);

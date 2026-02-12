@@ -56,8 +56,7 @@ char *size_to_name(int size){
     };
     return 0;
 };
-
-AST_Reg reg_to_num(char *reg){
+AST_Reg _reg_to_num(char *reg, int size){
     AST_Reg reg1 = (AST_Reg){0};
     reg1.reg = -1;
     for (int i=0; i<15; i++){
@@ -65,22 +64,14 @@ AST_Reg reg_to_num(char *reg){
             reg1.reg = i;
         };
     }
-    if (reg[2] != '\0'){
-        switch (reg[2]){
-            case 'b': reg1.size = 1; break;
-            case 'w': reg1.size = 2; break;
-            case 'd': reg1.size = 4; break;
-        };
+    if (size != 0){
+        reg1.size = size;
     }else {
         reg1.size = 8;
-    }
-    if (reg1.reg == -1){
-        char string[100];
-        snprintf(string, 100, "Register '%s' doesn't exist", reg);
-        error_generate("InvalidRegisterError", string);
-    }
+    };
     return reg1;
 };
+
 
 void append_ast_to_list(AST **head, AST *new_node, int *count) {
     new_node->next = NULL;
@@ -155,7 +146,28 @@ void parser_expect(Parser *parser, int type){
     }else {
     }
 };
+AST_Reg reg_to_num(Parser *parser){
+    Token cur = parser->tokens[parser->cur];
+    char *reg = cur.value;
+    AST_Reg reg1 = _reg_to_num(reg, 0);
+    parser_peek(parser);
+    cur = parser->tokens[parser->cur];
+    if (cur.type == TOKEN_COLON){
+        parser_peek(parser);
+        cur = parser->tokens[parser->cur];
+        parser_expect(parser, TOKEN_ID);
+        reg1.size = name_to_size(cur.value);
+    }else {
+        reg1.size = 8;
+    };
 
+    if (reg1.reg == -1){
+        char string[100];
+        snprintf(string, 100, "Register '%s' doesn't exist", reg);
+        error_generate("InvalidRegisterError", string);
+    }
+    return reg1;
+};
 #define ret(ast) ast->row = orig.row; ast->col = orig.col; return ast
 
 AST *parser_eat_expr(Parser *parser){
@@ -208,6 +220,12 @@ AST *parser_eat_expr(Parser *parser){
     parser_peek(parser);
 extr:
     token = parser->tokens[parser->cur];
+    if (token.type == TOKEN_COLON){
+        parser_peek(parser);
+        Token token = parser->tokens[parser->cur];
+        parser_expect(parser, TOKEN_ID);
+        ast->typeinfo = name_to_size(token.value);
+    };
     if (token.type == TOKEN_EQ){
         parser_peek(parser);
         parser_expect(parser, TOKEN_EQ);
@@ -326,7 +344,6 @@ AST *parser_parse_lhs(Parser *parser){
             ast->type = AST_DEREF;
             ast->data.expr.left = parser_eat_expr(parser);
             parser_expect(parser, TOKEN_RBRACKET);
-            ret(ast);
         } else {
             if (is_reg(token.value) == 0){
                 ast->type = AST_REG;
@@ -335,15 +352,21 @@ AST *parser_parse_lhs(Parser *parser){
             };
             ast->data.text.value = strdup(token.value);
             parser_peek(parser);
-            ret(ast);
         }
     }else if(token.type == TOKEN_AMP){
         ast->typeinfo = (AST_TypeInfo)8;
         ast->type = AST_REF;
         parser_peek(parser);
         ast->data.expr.left = parser_eat_expr(parser);
-        ret(ast);
     }
+
+    token = parser->tokens[parser->cur];
+    if (token.type == TOKEN_COLON){
+        parser_peek(parser);
+        token = parser->tokens[parser->cur];
+        parser_expect(parser, TOKEN_ID);
+        ast->typeinfo = name_to_size(token.value);
+    };
     
     ret(ast);
 }
@@ -355,8 +378,12 @@ AST *parser_eat_ast(Parser *parser){
     if (orig.type == TOKEN_EXC) exit(0);
     if (token.type == TOKEN_ID){
         if (string_compare(token.value, "syscall", 7) == 0){
-            ast->type = AST_SYSCALL;
             parser_peek(parser);
+            parser_expect(parser, TOKEN_DOT);
+            token = parser->tokens[parser->cur];
+            parser_expect(parser, TOKEN_ID);
+            ast->type = AST_SYSCALL;
+            ast->data.text.value = strdup(token.value);
         }else if(string_compare(token.value, "jump", 4) == 0){
             ast->type = AST_JMP;
             parser_peek(parser);
@@ -379,40 +406,35 @@ AST *parser_eat_ast(Parser *parser){
             ast->type = AST_ADD;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
         }else if(string_compare(token.value, "sub", 3) == 0){
             ast->type = AST_SUB;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
         }else if(string_compare(token.value, "mul", 3) == 0){
             ast->type = AST_MUL;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
         }else if(string_compare(token.value, "div", 3) == 0){
             ast->type = AST_DIV;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
         }else if(string_compare(token.value, "mod", 3) == 0){
             ast->type = AST_MOD;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
         }else if(string_compare(token.value, "call", 4) == 0){
@@ -437,8 +459,7 @@ AST *parser_eat_ast(Parser *parser){
             ast->type = AST_POP;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
         }else if(string_compare(token.value, "ret", 3) == 0){
             ast->type = AST_RET;
             parser_peek(parser);

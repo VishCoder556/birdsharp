@@ -1,6 +1,6 @@
 int string_len(char *a){
     int i = 0
-    while (a[i] != cast(char, 0)) {
+    while (a[i] != 0) {
         i = i + 1
     }
     return i
@@ -21,13 +21,11 @@ int close(int fd){
 }
 
 int read(int fd, char *data, int size){
-    syscall.read(fd, data, size)
-    return 0
+    return syscall.read(fd, data, size)
 }
 
 int write(int fd, char *str){
-    syscall.write(fd, str, string_len(str))
-    return 0
+    return syscall.write(fd, str, string_len(str))
 }
 
 int print(char *str){
@@ -40,20 +38,20 @@ int printerr(char *str){
     return 0
 }
 
-int *malloc(long size){
-    return cast(int*, syscall.mmap(0, size, 3, 4098, -1, 0))
+char *malloc(long size){
+    return cast(char*, syscall.mmap(0, size, 3, 4098, -1, 0))
 }
 
 char *int_to_string(int num){
-    char *str = cast(char*, malloc(cast(long, 200))); // 200 digits of precision
+    char *str = cast(char*, malloc(200)); // 200 digits of precision
     int temp = num
-    long j = cast(long, 0)
+    long j = 0
     if (num < 0) {
         temp = 0 - temp
     }
     if (num == 0){
         str[0] = '0'
-        str[1] = cast(char, 0)
+        str[1] = 0
         return str;
     }
     while temp != 0 {
@@ -65,24 +63,27 @@ char *int_to_string(int num){
         str[cast(long, j)] = '-'
         j = j + cast(long, 1)
     }
-    long end = j - cast(long, 1)
-    long begin = cast(long, 0)
+    long end = j - 1
+    long begin = 0
     while begin < end {
         char temp = str[begin]
         char _temp = str[end]
         str[begin] = cast(char, _temp)
         str[end] = cast(char, temp)
 
-        begin = begin + cast(long, 1)
-        end = end - cast(long, 1)
+        begin = begin + 1
+        end = end - 1
     }
-    str[j] = cast(char, 0)
+    str[j] = 0
     return str;
 }
 
 int strcmp(char *str1, char *str2){
     int str1len = string_len(str1);
     int str2len = string_len(str2);
+    if (str1len != str2len) {
+        return 0;
+    }
     int i = 0
     while (i < str1len) {
         if (str1[i] != str2[i]){

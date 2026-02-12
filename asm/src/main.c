@@ -106,7 +106,6 @@ void warning_generate_parser(char *type, char *name, int l, int c, char *f){
 #include "parser.c"
 #include "reviser.c"
 #include "compiler.c"
-#include "simulator.c"
 #include "wasm.c"
 
 
@@ -181,13 +180,6 @@ int main(int argc, char **argv){
         while (wasm_eat(wasm) != -1){
         };
         wasm_close(wasm);
-    }else if(mode == MODE_SIMULATE){
-        Simulator *simulator = simulator_init(reviser, output_file);
-        while (simulator_eat(simulator) != -1){
-        };
-        for (int i=0; i<14; i++){
-            printf("Reg %d: %d\n", i, (((int*)simulator->regs)[i]));
-        };
     }
 
     return 0;

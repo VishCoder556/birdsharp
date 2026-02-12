@@ -2,32 +2,26 @@
 
 
 int main(long argc, char **argv){
-    // char *c = cast(char*, malloc(cast(long, 10)))
-    // c[0] = 'H'
-    // c[1] = 'i'
-    // c[2] = cast(char, 10)
-    // c[3] = cast(char, 0)
-    // print(c)
-    long i = cast(long, 0)
-    while (i < argc){
+    int i = 0
+    while (i < cast(int, argc)){
         print("Argument #")
-        print(int_to_string(cast(int, i)))
+        print(int_to_string(i))
         print(": ");
         print(argv[i])
         print("\n")
-        if (strcmp(argv[i], "read") == 1){
-            i = i + cast(long, 1);
+        if (strcmp(argv[i], "read")){
+            i = i + 1;
             int fd = open(argv[i], 0, 0);
-            if (fd == 0){
+            if (fd < 0){
                 exit(-1)
             }
-            char *str = cast(char*, malloc(cast(long, 100)));
+            char *str = cast(char*, malloc(100));
             read(fd, str, 100);
             close(fd);
             print(str);
         }
-        if (strcmp(argv[i], "write") == 1){
-            i = i + cast(long, 1);
+        if (strcmp(argv[i], "write")){
+            i = i + 1;
             int fd = open(argv[i], 578, 420);
             if (fd < 0){
                 exit(-1)
@@ -36,7 +30,7 @@ int main(long argc, char **argv){
             close(fd);
         }
 
-        i = i + cast(long, 1)
+        i = i + 1
     }
     exit(0)
     return 0

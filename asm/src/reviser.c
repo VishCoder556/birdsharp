@@ -39,7 +39,7 @@ AST_TypeInfo reviser_get_lhs_size(AST ast){
         if (lhs->type == AST_REF){
             return 8;
         }else if(lhs->type == AST_REG){
-            AST_Reg reg = reg_to_num(strdup(lhs->data.text.value));
+            AST_Reg reg = _reg_to_num(strdup(lhs->data.text.value), lhs->typeinfo);
             return (AST_TypeInfo)reg.size;
         };
     }
@@ -181,55 +181,7 @@ void reviser_eat_expr(Reviser *reviser, AST *ast){
                 };
             };
         }else if(ast->data.var.value->type == AST_VAR){
-            char *str = ast->data.var.value->data.text.value;
-            if (string_compare(str, "syscall", strlen(str)) == 0){
-                char *name = ast->data.var.name;
-                ;
-                if (string_compare(name, "write", strlen(name)) == 0){
-                    ast->type = AST_INT;
-                    switch (target){
-                        case TARGET_MACOS: ast->data.text.value = "33554436"; break;
-                        case TARGET_LINUX: ast->data.text.value = "1"; break;
-                        default: break;
-                    }
-                }else if (string_compare(name, "exit", strlen(name)) == 0){
-                    ast->type = AST_INT;
-                    switch (target){
-                        case TARGET_MACOS: ast->data.text.value = "33554433"; break;
-                        case TARGET_LINUX: ast->data.text.value = "60"; break;
-                        default: break;
-                    }
-                }else if (string_compare(name, "mmap", strlen(name)) == 0){
-                    ast->type = AST_INT;
-                    switch (target){
-                        case TARGET_MACOS: ast->data.text.value = "33554629"; break;
-                        case TARGET_LINUX: ast->data.text.value = "9"; break;
-                        default: break;
-                    }
-                } else if (string_compare(name, "read", strlen(name)) == 0) {
-                    ast->type = AST_INT;
-                    switch (target) {
-                        case TARGET_MACOS: ast->data.text.value = "33554435"; break;
-                        case TARGET_LINUX: ast->data.text.value = "0"; break;
-                        default: break;
-                    }
-                } else if (string_compare(name, "open", strlen(name)) == 0) {
-                    ast->type = AST_INT;
-                    switch (target) {
-                        case TARGET_MACOS: ast->data.text.value = "33554437"; break;
-                        case TARGET_LINUX: ast->data.text.value = "2"; break;
-                        default: break;
-                    }
-                } else if (string_compare(name, "close", strlen(name)) == 0) {
-                    ast->type = AST_INT;
-                    switch (target) {
-                        case TARGET_MACOS: ast->data.text.value = "33554438"; break;
-                        case TARGET_LINUX: ast->data.text.value = "3"; break;
-                        default: break;
-                    }
-                }
 
-            };
         };
 
     }else if (ast->type == AST_EQ){
@@ -261,7 +213,7 @@ void reviser_eat_expr(Reviser *reviser, AST *ast){
         reviser_eat_expr(reviser, ast->data.expr.right);
         reviser_eat_expr(reviser, ast->data.expr.left);
     }else if(ast->type == AST_REG){
-        AST_Reg reg = reg_to_num(ast->data.text.value);
+        AST_Reg reg = _reg_to_num(ast->data.text.value, ast->typeinfo);
         ast->typeinfo = reg.size;
     }
 };
@@ -275,7 +227,7 @@ void reviser_eat_lhs(Reviser *reviser, AST *ast){
     }else if (ast->type == AST_REF){
         reviser_eat_expr(reviser, ast->data.expr.left);
     }else if(ast->type == AST_REG){
-        AST_Reg reg = reg_to_num(ast->data.text.value);
+        AST_Reg reg = _reg_to_num(ast->data.text.value, ast->typeinfo);
         ast->typeinfo = reg.size;
     }
 }
@@ -292,6 +244,46 @@ void reviser_eat_ast(Reviser *reviser, AST *ast){
         }
         reviser_eat_expr(reviser, ast->data.opexpr.right);
     }else if(ast->type == AST_SYSCALL){
+        char *name = strdup(ast->data.text.value);
+        char *res = "";
+        if (string_compare(name, "write", strlen(name)) == 0){
+            switch (target){
+                case TARGET_MACOS: res = "33554436"; break;
+                case TARGET_LINUX: res = "1"; break;
+                default: break;
+            }
+        }else if (string_compare(name, "exit", strlen(name)) == 0){
+            switch (target){
+                case TARGET_MACOS: res = "33554433"; break;
+                case TARGET_LINUX: res = "60"; break;
+                default: break;
+            }
+        }else if (string_compare(name, "mmap", strlen(name)) == 0){
+            switch (target){
+                case TARGET_MACOS: res = "33554629"; break;
+                case TARGET_LINUX: res = "9"; break;
+                default: break;
+            }
+        } else if (string_compare(name, "read", strlen(name)) == 0) {
+            switch (target) {
+                case TARGET_MACOS: res = "33554435"; break;
+                case TARGET_LINUX: res = "0"; break;
+                default: break;
+            }
+        } else if (string_compare(name, "open", strlen(name)) == 0) {
+            switch (target) {
+                case TARGET_MACOS: res = "33554437"; break;
+                case TARGET_LINUX: res = "2"; break;
+                default: break;
+            }
+        } else if (string_compare(name, "close", strlen(name)) == 0) {
+            switch (target) {
+                case TARGET_MACOS: res = "33554438"; break;
+                case TARGET_LINUX: res = "3"; break;
+                default: break;
+            }
+        }
+        ast->data.text.value = res;
     }else if(ast->type == AST_RET){
     }else if(ast->type == AST_PUSH){
         reviser_eat_expr(reviser, ast->data.operation.right);

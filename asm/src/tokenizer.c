@@ -41,6 +41,7 @@ char *token_to_string(int tokentype){
         case TOKEN_PLUS: return "'+'";
         case TOKEN_SUB: return "'-'";
         case TOKEN_MUL: return "'*'";
+        case TOKEN_COLON: return "':'";
         case TOKEN_FLOAT: return "floating point";
         case TOKEN_DOT: return "'.'";
         case TOKEN_PIPE: return "'|'";
@@ -62,6 +63,8 @@ char tokenizer_token(Tokenizer *tokenizer){
         tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_RP, ")", tokenizer->line, tokenizer->col, tokenizer->name};
     }else if (c == '|'){
         tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_PIPE, "|", tokenizer->line, tokenizer->col, tokenizer->name};
+    }else if (c == ':'){
+        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_COLON, ":", tokenizer->line, tokenizer->col, tokenizer->name};
     }else if (c == '{'){
         tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_LB, "{", tokenizer->line, tokenizer->col, tokenizer->name};
     }else if (c == ','){
