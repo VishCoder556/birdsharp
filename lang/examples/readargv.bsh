@@ -2,9 +2,6 @@
 
 
 int main(long argc, char **argv){
-    print("argc: ")
-    print(int_to_string(cast(int, argc)))
-    print("\n")
     int i = 0
     while (i < cast(int, argc)){
         print("Argument #")
@@ -13,7 +10,6 @@ int main(long argc, char **argv){
         print(argv[i])
         print("\n")
         if (strcmp(argv[i], "read")){
-            print("Read\n");
             i = i + 1;
             int fd = open(argv[i], 0, 0);
             if (fd < 0){
@@ -25,7 +21,6 @@ int main(long argc, char **argv){
             print(str);
         }
         if (strcmp(argv[i], "write")){
-            print("Hello World\n");
             i = i + 1;
             int fd = open(argv[i], 578, 420);
             if (fd < 0){
@@ -34,7 +29,6 @@ int main(long argc, char **argv){
             write(fd, "Hello!\n")
             close(fd);
         }
-
 
         i = i + 1
     }

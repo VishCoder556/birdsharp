@@ -556,6 +556,12 @@ AST *parser_eat_body(Parser *parser){
                 append_ast_to_list(&ast->data.funcdef.block, ast1, &ast->data.funcdef.blocklen);
             };
             parser_expect(parser, TOKEN_RB);
+        }else if(string_compare(token.value, "extern", strlen(token.value)) == 0){
+            ast->type = AST_EXTERN;
+            parser_peek(parser);
+            token = parser->tokens[parser->cur];
+            parser_expect(parser, TOKEN_ID);
+            ast->data.text.value = token.value;
         };
     };
     

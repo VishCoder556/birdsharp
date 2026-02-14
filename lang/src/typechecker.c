@@ -276,6 +276,9 @@ int typeinfo_to_len(AST_TypeInfo type){
     if (type.ptrnum > 0){
         return 8;
     }
+    if (type.type == NULL){
+        return 0;
+    }
     for (int v=0; v<typesLen; v++){
         if (strcmp(types[v].name, type.type) == 0){
             return types[v].length;
@@ -346,7 +349,7 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
                 };
             };
         };
-        if (a == 0){
+        if (a == 0 && ast->data.funcdef.blocklen != -1){
             char string[100];
             snprintf(string, 100, "No return found in function \"%s\" that doesn't return void", ast->data.funcdef.name);
             error_generate_parser("ReturnError", string, ast->row, ast->col, ast->filename);

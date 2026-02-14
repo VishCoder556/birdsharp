@@ -8,7 +8,7 @@ int tempN = 0;
 
 typedef struct {
     char *reg;
-    short available; // 0 = unavailable, 1 = available, 2 = unavailable
+    bool available;
 }IRReg;
 IRReg IRRegs[14];
 int IRRegLen = 0;
@@ -25,7 +25,7 @@ char *len_to_selector(int size){
         case 4: return "i32";
         case 8: return "i64";
     }
-    return "";
+    return "i64";
 }
 
 char *ir_alloc_reg() {
@@ -56,16 +56,21 @@ void ir_free_reg(char *reg){
     };
 };
 
+void IRRegs_clear(){
+    for (int i=0; i<14; i++){
+        IRRegs[i].available = true;
+    }
+}
+
 void ir_init(void *generator){
     IrData = malloc(5000);
     strncpy(IrData, "", 100);
     Generator *gen = (Generator*)generator;
     strcat(gen->output->filename, ".ir");
-
     for (int i=0; i<14; i++){
         IRRegs[i].reg = regs[i];
-        IRRegs[i].available = true;
     };
+    IRRegs_clear();
     char *v0_reg = ir_alloc_reg();
     generator_open_text(generator);
 };
@@ -280,7 +285,6 @@ char *move(void *generator, AST ast, char *reg){
     generator_write_text(generator, ", "); \
     generator_write_text(generator, right_ptr); \
     generator_write_text(generator, "\n"); \
-    free_temp(strdup(right_ptr)); \
     free_temp(strdup(reg2));\
     return reg1;
 
@@ -328,10 +332,10 @@ char *ir_generate_expr(void *generator, AST ast){
         for (int i=ast.data.funcall.argslen; i > 0; i--){
             char string[100];
             snprintf(string, 100, "a%d", i-1);
-            IRRegs[i].available = false;
-            ir_generate_expr(generator, *ast.data.funcall.args[i-1]);
-            move(generator, *ast.data.funcall.args[i-1], strdup(string));
-            IRRegs[i].available = true;
+            ir_allocate_reg(strdup(string));
+            int idx = i == 0 ? 0 : i-1;
+            move(generator, *ast.data.funcall.args[idx], strdup(string));
+            free_temp(strdup(string));
         };
         generator_write_text(generator, "\tcall ");
         generator_write_text(generator, ast.data.funcall.name);
@@ -354,7 +358,9 @@ char *ir_generate_expr(void *generator, AST ast){
         for (int i=ast.data.funcall.argslen; i > 0; i--){
             char string[100];
             snprintf(string, 100, "a%d", i-1);
+            ir_allocate_reg(strdup(string));
             move(generator, *ast.data.funcall.args[i-1], strdup(string));
+            free_temp(strdup(string));
         };
         int syscallLen = strlen("syscall");
         if (strncmp(ast.data.funcall.name, "syscall", syscallLen) == 0){
@@ -418,11 +424,11 @@ char *ir_generate_expr(void *generator, AST ast){
         int len = typeinfo_to_len(ast.typeinfo);
         char *reg2 = ir_alloc_reg();
         char *reg1 = ir_alloc_reg();
-        move(generator, *ast.data.expr.left, reg1);
-        move(generator, *ast.data.expr.right, reg2);
+        char *l = move(generator, *ast.data.expr.left, reg1);
+        char *r = move(generator, *ast.data.expr.right, reg2);
         if (len != 1){
             generator_write_text(generator, "\tmul ");
-            generator_write_text(generator, reg2);
+            generator_write_text(generator, r);
             generator_write_text(generator, ", ");
             char string[100];
             snprintf(string, 100, "%d", len);
@@ -430,9 +436,9 @@ char *ir_generate_expr(void *generator, AST ast){
             generator_write_text(generator, "\n");
         }
         generator_write_text(generator, "\tadd ");
-        generator_write_text(generator, reg1);
+        generator_write_text(generator, l);
         generator_write_text(generator, ", ");
-        generator_write_text(generator, reg2);
+        generator_write_text(generator, r);
         generator_write_text(generator, "\n");
         free_temp(strdup(reg2));
         char string[100];
@@ -540,6 +546,7 @@ void ir_generate_stmnt(void *generator, AST ast){
                 free(sized_rhs);
             }
             free_temp(strdup(rhs));
+            free_temp(strdup(var));
         } else {
             snprintf(string, 100, "%s [%s]", len_to_selector(typeinfo), var);
             move(generator, *(ast.data.assign.assignto), strdup(string));
@@ -636,10 +643,14 @@ void ir_generate_stmnt(void *generator, AST ast){
 
 void ir_generate_ast(void *generator, AST ast){
     if (ast.type == AST_FUNCDEF){
-        for (int i=0; i<14; i++){
-            IRRegs[i].available = true;
+        if (ast.data.funcdef.blocklen == -1){
+            char string[100];
+            snprintf(string, 100, "%%extern %s\n", ast.data.funcdef.name);
+            generator_write_text(generator, strdup(string));
+            return;
         }
         lblN = 0;
+        IRRegs_clear();
         generator_write_text(generator, "%func ");
         generator_write_text(generator, ast.data.funcdef.name);
         generator_write_text(generator, " {\n");

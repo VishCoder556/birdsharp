@@ -6,7 +6,7 @@
 %label _LBC0 {
 	a2 = i64 [a]
 	a3:i32 = i32 [i]
-	add a2, a3
+	add a2, a3:i32
 	s0 = i8 [a2] != 0
 	jump labelend _LBC0 ifnot s0
 	s0:i32 = i32 [i]
@@ -140,12 +140,12 @@
 	push a2
 	pop a2
 	i8 [a2] = 48
-	a1 = i64 [str]
+	a2 = i64 [str]
 	a3 = 1
-	add a1, a3
-	push a1
-	pop a1
-	i8 [a1] = 0
+	add a2, a3
+	push a2
+	pop a2
+	i8 [a2] = 0
 	v0 = i64 [str]
 	ret
 	jump label _LBC_END_2
@@ -161,36 +161,36 @@
 	s0 = i64 [j]
 	add a3, s0
 	push a3
-	a4:i32 = i32 [temp]
-	a5 = 10
-	mod a4:i32, a5
-	s0:i32 = a4:i32
-	a0 = 48
-	add s0:i32, a0
+	a1:i32 = i32 [temp]
+	a0 = 10
+	mod a1:i32, a0
+	s0:i32 = a1:i32
+	a2 = 48
+	add s0:i32, a2
 	pop a3
 	i8 [a3] = s0:i8
 	s0:i32 = i32 [temp]
-	a0 = 10
-	div s0:i32, a0
+	a3 = 10
+	div s0:i32, a3
 	i32 [temp] = s0:i32
 	s0 = i64 [j]
-	a0 = 1
-	add s0, a0
+	a3 = 1
+	add s0, a3
 	i64 [j] = s0
 	jump label _LBC4
 }
 	s0 = i32 [num] < 0
 	jump label _LBC_NEXT_6 ifnot s0
-	a4 = i64 [str]
-	a0 = i64 [j]
-	add a4, a0
-	push a4
-	pop a4
-	i8 [a4] = 45
-	a0 = i64 [j]
-	a5 = 1
-	add a0, a5
-	i64 [j] = a0
+	a2 = i64 [str]
+	a3 = i64 [j]
+	add a2, a3
+	push a2
+	pop a2
+	i8 [a2] = 45
+	a3 = i64 [j]
+	a2 = 1
+	add a3, a2
+	i64 [j] = a3
 	jump label _LBC_END_5
 %label _LBC_NEXT_6 {
 	jump label _LBC_END_5
@@ -199,8 +199,8 @@
 }
 	%local end, 8
 	s0 = i64 [j]
-	a0 = 1
-	sub s0, a0
+	a3 = 1
+	sub s0, a3
 	i64 [end] = s0
 	%local begin, 8
 	i64 [begin] = 0
@@ -208,43 +208,43 @@
 	s0:i8 = i64 [begin] < i64 [end]
 	jump labelend _LBC7 ifnot s0:i8
 	%local temp, 1
-	a5 = i64 [str]
-	a0 = i64 [begin]
-	add a5, a0
-	i8 [temp] = i8 [a5]
+	a2 = i64 [str]
+	a3 = i64 [begin]
+	add a2, a3
+	i8 [temp] = i8 [a2]
 	%local _temp, 1
-	a5 = i64 [str]
-	a0 = i64 [end]
-	add a5, a0
-	i8 [_temp] = i8 [a5]
-	a5 = i64 [str]
-	a0 = i64 [begin]
-	add a5, a0
-	push a5
-	pop a5
-	i8 [a5] = i8 [_temp]
-	t0 = i64 [str]
-	a0 = i64 [end]
-	add t0, a0
-	push t0
-	pop t0
-	i8 [t0] = i8 [temp]
-	a0 = i64 [begin]
-	t1 = 1
-	add a0, t1
-	i64 [begin] = a0
-	a0 = i64 [end]
-	t1 = 1
-	sub a0, t1
-	i64 [end] = a0
+	a2 = i64 [str]
+	a3 = i64 [end]
+	add a2, a3
+	i8 [_temp] = i8 [a2]
+	a2 = i64 [str]
+	a3 = i64 [begin]
+	add a2, a3
+	push a2
+	pop a2
+	i8 [a2] = i8 [_temp]
+	a2 = i64 [str]
+	a3 = i64 [end]
+	add a2, a3
+	push a2
+	pop a2
+	i8 [a2] = i8 [temp]
+	a3 = i64 [begin]
+	a2 = 1
+	add a3, a2
+	i64 [begin] = a3
+	a3 = i64 [end]
+	a2 = 1
+	sub a3, a2
+	i64 [end] = a3
 	jump label _LBC7
 }
-	a0 = i64 [str]
+	a3 = i64 [str]
 	s0 = i64 [j]
-	add a0, s0
-	push a0
-	pop a0
-	i8 [a0] = 0
+	add a3, s0
+	push a3
+	pop a3
+	i8 [a3] = 0
 	v0 = i64 [str]
 	ret
 }
@@ -278,10 +278,10 @@
 	jump labelend _LBC2 ifnot s0
 	a2 = i64 [str1]
 	a3:i32 = i32 [i]
-	add a2, a3
+	add a2, a3:i32
 	a1 = i64 [str2]
 	a3:i32 = i32 [i]
-	add a1, a3
+	add a1, a3:i32
 	s0 = i8 [a2] != i8 [a1]
 	jump label _LBC_NEXT_4 ifnot s0
 	v0 = 0
@@ -306,74 +306,69 @@
 	i64 [argc] = a0
 	%local argv, 8
 	i64 [argv] = a1
+	s0 = &temp_0
+	a0 = s0
+	call print
+	a0:i32 = i32 [argc]
+	call int_to_string
+	a0 = v0
+	call print
+	s0 = &temp_1
+	a0 = s0
+	call print
 	%local i, 4
 	i32 [i] = 0
 %label _LBC0 {
 	s0 = i32 [i] < i32 [argc]
 	jump labelend _LBC0 ifnot s0
-	a3 = &temp_0
-	a2 = &temp_1
-	a0 = a2
+	s0 = &temp_2
+	a0 = s0
 	call print
-	a0:i32 = i32 [i]
-	call int_to_string
 	a0:i32 = i32 [i]
 	call int_to_string
 	a0 = v0
 	call print
-	a2 = &temp_2
-	a1 = &temp_3
-	a0 = a1
+	s0 = &temp_3
+	a0 = s0
 	call print
-	a0 = i64 [argv]
-	a1:i32 = i32 [i]
-	mul a1, 8
-	add a0, a1
-	a4 = i64 [argv]
-	a1:i32 = i32 [i]
-	mul a1, 8
-	add a4, a1
-	a0 = i64 [a4]
+	a3 = i64 [argv]
+	s0:i32 = i32 [i]
+	mul s0:i32, 8
+	add a3, s0:i32
+	a0 = i64 [a3]
 	call print
-	a1 = &temp_4
-	a4 = &temp_5
-	a0 = a4
+	s0 = &temp_4
+	a0 = s0
 	call print
-	a4 = &temp_6
-	a5 = &temp_7
-	a1 = a5
-	a5 = i64 [argv]
+	a3 = &temp_5
+	a1 = a3
+	a2 = i64 [argv]
 	a3:i32 = i32 [i]
-	mul a3, 8
-	add a5, a3
-	t0 = i64 [argv]
-	a3:i32 = i32 [i]
-	mul a3, 8
-	add t0, a3
-	a0 = i64 [t0]
+	mul a3:i32, 8
+	add a2, a3:i32
+	a0 = i64 [a2]
 	call strcmp
 	s0:i32 = v0:i32
 	jump label _LBC_NEXT_2 ifnot s0
-	s0:i32 = i32 [i]
-	a3 = 1
-	add s0:i32, a3
-	i32 [i] = s0:i32
+	a3 = &temp_6
+	a0 = a3
+	call print
+	a3:i32 = i32 [i]
+	a2 = 1
+	add a3:i32, a2
+	i32 [i] = a3:i32
 	%local fd, 4
 	a2 = 0
 	a1 = 0
 	a2 = i64 [argv]
 	a3:i32 = i32 [i]
-	mul a3, 8
-	add a2, a3
-	t0 = i64 [argv]
-	a3:i32 = i32 [i]
-	mul a3, 8
-	add t0, a3
-	a0 = i64 [t0]
+	mul a3:i32, 8
+	add a2, a3:i32
+	a0 = i64 [a2]
 	call open
 	i32 [fd] = v0:i32
-	s0 = i32 [fd] < 0
-	jump label _LBC_NEXT_4 ifnot s0
+	a3 = i32 [fd] < 0
+	jump label _LBC_NEXT_4 ifnot a3
 	a0 = -1
 	call exit
 	jump label _LBC_END_3
@@ -400,41 +395,35 @@
 }
 %label _LBC_END_1 {
 }
-	a2 = &temp_8
-	t0 = &temp_9
-	a1 = t0
-	t0 = i64 [argv]
+	a3 = &temp_7
+	a1 = a3
+	a2 = i64 [argv]
 	a3:i32 = i32 [i]
-	mul a3, 8
-	add t0, a3
-	t1 = i64 [argv]
-	a3:i32 = i32 [i]
-	mul a3, 8
-	add t1, a3
-	a0 = i64 [t1]
+	mul a3:i32, 8
+	add a2, a3:i32
+	a0 = i64 [a2]
 	call strcmp
 	s0:i32 = v0:i32
 	jump label _LBC_NEXT_6 ifnot s0
-	s0:i32 = i32 [i]
-	a3 = 1
-	add s0:i32, a3
-	i32 [i] = s0:i32
+	a3 = &temp_8
+	a0 = a3
+	call print
+	a3:i32 = i32 [i]
+	a2 = 1
+	add a3:i32, a2
+	i32 [i] = a3:i32
 	%local fd, 4
 	a2 = 420
 	a1 = 578
 	a2 = i64 [argv]
 	a3:i32 = i32 [i]
-	mul a3, 8
-	add a2, a3
-	t1 = i64 [argv]
-	a3:i32 = i32 [i]
-	mul a3, 8
-	add t1, a3
-	a0 = i64 [t1]
+	mul a3:i32, 8
+	add a2, a3:i32
+	a0 = i64 [a2]
 	call open
 	i32 [fd] = v0:i32
-	s0 = i32 [fd] < 0
-	jump label _LBC_NEXT_8 ifnot s0
+	a3 = i32 [fd] < 0
+	jump label _LBC_NEXT_8 ifnot a3
 	a0 = -1
 	call exit
 	jump label _LBC_END_7
@@ -443,9 +432,8 @@
 }
 %label _LBC_END_7 {
 }
-	s0 = &temp_10
-	t1 = &temp_11
-	a1 = t1
+	a3 = &temp_9
+	a1 = a3
 	a0:i32 = i32 [fd]
 	call write
 	a0:i32 = i32 [fd]
@@ -467,15 +455,13 @@
 	v0 = 0
 	ret
 }
-%i8 temp_0 = "Argument #"
-%i8 temp_1 = "Argument #"
-%i8 temp_2 = ": "
+%i8 temp_0 = "argc: "
+%i8 temp_1 = "\n"
+%i8 temp_2 = "Argument #"
 %i8 temp_3 = ": "
 %i8 temp_4 = "\n"
-%i8 temp_5 = "\n"
-%i8 temp_6 = "read"
-%i8 temp_7 = "read"
-%i8 temp_8 = "write"
-%i8 temp_9 = "write"
-%i8 temp_10 = "Hello!\n"
-%i8 temp_11 = "Hello!\n"
+%i8 temp_5 = "read"
+%i8 temp_6 = "Read\n"
+%i8 temp_7 = "write"
+%i8 temp_8 = "Hello World\n"
+%i8 temp_9 = "Hello!\n"

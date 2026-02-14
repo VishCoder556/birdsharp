@@ -36,7 +36,8 @@ typedef enum{
     AST_DEREF,
     AST_PLUS,
     AST_LOCAL,
-    AST_CONST
+    AST_CONST,
+    AST_EXTERN
 }AST_Type;
 
 typedef struct AST AST;

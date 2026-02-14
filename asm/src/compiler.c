@@ -115,8 +115,8 @@ void compiler_close(Compiler *compiler){
     fclose(compiler->f);
     char string[100];
     compiler->_o = find_available_tmp_file("o");
-    snprintf(string, 100, "bat %s", compiler->_asm);
-    system(string);
+    // snprintf(string, 100, "bat %s", compiler->_asm);
+    // system(string);
     snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
     system(string);
     snprintf(string, 100, "yasm -f macho64 %s -o %s", compiler->_asm, compiler->_o);
@@ -472,7 +472,7 @@ void compiler_eat_ast(Compiler *compiler, AST ast){
         compiler_write_text_line(compiler, "pop %s", reg_to_name(ast.data.operation.reg));
     }else if(ast.type == AST_CALL){
         char string[100];
-        snprintf(string, 100, "_fun%s", ast.data.jmpif.label);
+        snprintf(string, 100, "%s", ast.data.jmpif.label);
         compiler_write_text_line(compiler, "call %s", strdup(string));
     }else if(ast.type == AST_CALLIF){
         char string[100];
@@ -481,7 +481,7 @@ void compiler_eat_ast(Compiler *compiler, AST ast){
         compiler_write_text_line(compiler, "test %s, %s", reg, reg);
         compiler_write_text_line(compiler, "jz %s", strdup(string));
         char string1[100];
-        snprintf(string1, 100, "_fun%s", ast.data.jmpif.label);
+        snprintf(string1, 100, "%s", ast.data.jmpif.label);
         compiler_write_text_line(compiler, "call %s", strdup(string1));
         compiler_write_text(compiler, "%s:\n", strdup(string));
     }else if(ast.type == AST_CALLIFN){
@@ -491,7 +491,7 @@ void compiler_eat_ast(Compiler *compiler, AST ast){
         compiler_write_text_line(compiler, "test %s, %s", reg, reg);
         compiler_write_text_line(compiler, "jnz %s", strdup(string));
         char string1[100];
-        snprintf(string1, 100, "_fun%s", ast.data.jmpif.label);
+        snprintf(string1, 100, "%s", ast.data.jmpif.label);
         compiler_write_text_line(compiler, "call %s", strdup(string1));
         compiler_write_text(compiler, "%s:\n", strdup(string));
     }else if(ast.type == AST_ADD){
@@ -499,6 +499,9 @@ void compiler_eat_ast(Compiler *compiler, AST ast){
         char *reg = reg_to_name(ast.data.operation.reg);
         AST_Reg _reg = reg_real_to_num(reg);
         AST_Reg _buf = reg_real_to_num(buf);
+        if (_buf.size != _reg.size){
+            compiler_write_text_line(compiler, "mov %s, %s", buf, buf);
+        };
         compiler_write_text_line(compiler, "add %s, %s", reg, change_reg_size(_buf.reg, _reg.size));
     }else if(ast.type == AST_SUB){
         char *buf = compiler_eat_expr(compiler, ast.data.operation.right, -1);
@@ -583,7 +586,7 @@ void compiler_eat_body(Compiler *compiler){
     AST ast = *(load_ast_compiler(compiler));
     if (ast.type == AST_FUNCDEF){
         char string[100];
-        snprintf(string, 100, "_fun%s", ast.data.funcdef.name);
+        snprintf(string, 100, "%s", ast.data.funcdef.name);
         char *name = strdup(string);
         if (string_compare(name, "_funmain", strlen(name)) == 0) {
             name = "main";
@@ -618,6 +621,8 @@ void compiler_eat_body(Compiler *compiler){
     }else if (ast.type == AST_VAR){
         AST *data = ast.data.var.value;
         compiler_write(compiler->data, "\talign 8\n\t_LBC%s: %s %s\n", ast.data.var.name, typeinfo_to_specifier(ast.typeinfo), format(compiler_eat_expr(compiler, data, -1), data->type));
+    }else if(ast.type == AST_EXTERN){
+        compiler_write(compiler->data, "extrn %s\n", ast.data.text.value);
     }
     compiler_peek(compiler);
 }

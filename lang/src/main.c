@@ -1318,23 +1318,27 @@ AST parser_eat_body(Parser *parser){
                 };
             };
             parser_expect(parser, TOKEN_RP);
-            parser_expect(parser, TOKEN_LB);
-            Token prev;
-            char c = 0;
-            while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                if (parser->tokens[parser->cur].type == prev.type && strcmp(parser->tokens[parser->cur].value, prev.value) == 0){
-                    c++;
-                    if (c > 5){
-                        error_generate_parser("SyntaxError", "Something went wrong in function", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
-                    }
-                }else {
-                    c = 0;
+            if (parser->tokens[parser->cur].type == TOKEN_LB){
+                parser_expect(parser, TOKEN_LB);
+                Token prev;
+                char c = 0;
+                while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
+                    if (parser->tokens[parser->cur].type == prev.type && strcmp(parser->tokens[parser->cur].value, prev.value) == 0){
+                        c++;
+                        if (c > 5){
+                            error_generate_parser("SyntaxError", "Something went wrong in function", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
+                        }
+                    }else {
+                        c = 0;
+                    };
+                    ast.data.funcdef.block[ast.data.funcdef.blocklen++] = parser_eat_ast(parser);
+                    prev = parser->tokens[parser->cur-1];
                 };
-                ast.data.funcdef.block[ast.data.funcdef.blocklen++] = parser_eat_ast(parser);
-                prev = parser->tokens[parser->cur-1];
-            };
-            parser_expect(parser, TOKEN_RB);
+                parser_expect(parser, TOKEN_RB);
+            }else {
+                ast.data.funcdef.blocklen = -1;
             }
+        }
         }else {
             error_generate_parser("SyntaxError", "Unknown identifier", parser->tokens[av].row, parser->tokens[av].col, parser->name);
         };
