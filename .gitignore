@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Compiled files
+*.o
+*.out
+*.a
+*.so
+lang/bs
+lang/bs.dSYM/
+asm/main
+asm/irc
+
+# Temporary files
+tmp.wat
+*.bt
+*.s
+
+# Test outputs
+lang/test.txt
+hello
