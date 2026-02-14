@@ -115,8 +115,8 @@ void compiler_close(Compiler *compiler){
     fclose(compiler->f);
     char string[100];
     compiler->_o = find_available_tmp_file("o");
-    // snprintf(string, 100, "bat %s", compiler->_asm);
-    // system(string);
+    snprintf(string, 100, "bat %s", compiler->_asm);
+    system(string);
     snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
     system(string);
     snprintf(string, 100, "yasm -f macho64 %s -o %s", compiler->_asm, compiler->_o);

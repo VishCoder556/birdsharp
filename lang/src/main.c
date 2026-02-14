@@ -12,10 +12,7 @@
  *
  * How to try out BirdSharp:
  *  There are two ways:
- *      1. Bytecode (Has several restrictions, is new):
- *          Just run "./exes/bs.out main.bsh -byte" to create your .bt
- *          Then run "./exes/run.out main.bt" to run that
- *      2. Executables (The main version of BirdSharp):
+ *      1. Executables (The main version of BirdSharp):
  *          Run "./exes/bs.out main.bsh" to create the .s file
  *              (This will automatically assemble it into a .o file and link it into a .out)
  *          Run "./main.out" to run your file!
@@ -33,7 +30,7 @@
 #include <time.h>
 
 char *HELP = 
-"Help for AprilScript\n\n"
+"Help for BirdSharp\n\n"
 "-o: Specify the output file\n"
 "-h: Print this menu\n"
 "-dynamic: Specify dynamic linking (linking with the stdlibrary + a lot more, but at the cost of the program being slow)\n"
@@ -784,6 +781,49 @@ char try_parse_mode(Parser *parser, AST *ast){
 };
 
 
+int get_precedence(int type){
+    switch (type){
+        case AST_EQ: case AST_NEQ: 
+            return 1;
+
+        case AST_LT: case AST_LTE: case AST_GT: case AST_GTE: 
+            return 2;
+
+        case AST_PLUS: case AST_SUB: 
+            return 3;
+
+        case AST_MUL: case AST_DIV: case AST_MODULO: 
+            return 4;
+
+        default: return -1;
+    };
+}
+
+
+AST* rotate_to_left(AST* parent) {
+    // 1. If this isn't an expression or has no right child, do nothing
+    if (parent == NULL || parent->data.expr.right == NULL) {
+        return parent;
+    }
+
+    parent->data.expr.right = rotate_to_left(parent->data.expr.right);
+
+    AST* child = parent->data.expr.right;
+
+    if (get_precedence(parent->type) != -1 && 
+        get_precedence(child->type) != -1 &&
+        get_precedence(parent->type) >= get_precedence(child->type)) {
+        
+        parent->data.expr.right = child->data.expr.left;
+        child->data.expr.left = rotate_to_left(parent);
+        
+        return child; 
+    }
+
+    return parent;
+}
+
+
 AST *parser_eat_expr(Parser *parser){
     Token token_1 = parser->tokens[parser->cur];
     int a = parser->cur;
@@ -931,7 +971,7 @@ AST *parser_eat_expr(Parser *parser){
         };
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
-        ast = ast2;
+        ast = rotate_to_left(ast2);
     }
     if (parser->tokens[parser->cur].type == TOKEN_SUB){
         AST *ast2 = malloc(sizeof(AST));
@@ -945,7 +985,7 @@ AST *parser_eat_expr(Parser *parser){
         };
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
-        return ast2;
+        ast = rotate_to_left(ast2);
     }
     if (parser->tokens[parser->cur].type == TOKEN_MUL){
         AST *ast2 = malloc(sizeof(AST));
@@ -961,7 +1001,7 @@ AST *parser_eat_expr(Parser *parser){
             return ast;
         }
         ast2->data.expr.right = parser_eat_expr(parser);
-        return ast2;
+        ast = rotate_to_left(ast2);
     }
     if (parser->tokens[parser->cur].type == TOKEN_DIV){
         AST *ast2 = malloc(sizeof(AST));
@@ -972,7 +1012,7 @@ AST *parser_eat_expr(Parser *parser){
         };
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
-        return ast2;
+        ast = rotate_to_left(ast2);
     }
     if (parser->tokens[parser->cur].type == TOKEN_MODULO){
         AST *ast2 = malloc(sizeof(AST));
@@ -983,7 +1023,7 @@ AST *parser_eat_expr(Parser *parser){
         };
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
-        return ast2;
+        ast = rotate_to_left(ast2);
     }
     if (parser->tokens[parser->cur].type == TOKEN_GT){
         if (parser->cur + 1 == parser->tokenlen){

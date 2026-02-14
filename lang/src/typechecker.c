@@ -52,28 +52,6 @@ int is_expression(AST ast){
     return 0;
 }
 
-int get_precedence(AST ast){
-    switch (ast.type){
-        case AST_EXPR: return 0;
-        case AST_CAST: return 0;
-        case AST_INT: return 0;
-        case AST_VAR: return 0;
-        case AST_STRING: return 0;
-        case AST_DEREF: return 0;
-        case AST_PLUS: return 1;
-        case AST_SUB: return 1;
-        case AST_MUL: return 2;
-        case AST_DIV: return 2;
-        case AST_MODULO: return 2;
-        case AST_EQ: return 4;
-        case AST_NEQ: return 4;
-        case AST_LT: return 3;
-        case AST_LTE: return 3;
-        case AST_GT: return 3;
-        case AST_GTE: return 3;
-        default: return -1;
-    };
-}
 
 TC_Scope initialize_scope(){
     TC_Scope scope;
@@ -298,9 +276,6 @@ bool is_immediate(AST *ast){
 };
 void typechecker_eat(Typechecker *typechecker, AST *ast){
     ast->typeinfo = fetch_type(typechecker, ast);
-    // if (is_expression(*ast)){
-    //     fprintf(stderr, "{%d, %d}\n", get_precedence(*ast), get_precedence(*ast->data.expr.right));
-    // }
     if (ast->type == AST_FUNCDEF){
         AST_TypeInfo expected = ast->typeinfo;
         typechecker->functions[typechecker->functionlen].name = ast->data.funcdef.name;

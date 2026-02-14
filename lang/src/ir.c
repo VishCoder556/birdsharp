@@ -37,7 +37,7 @@ char *ir_alloc_reg() {
             };
         };
     }
-    return "";
+    return "i64 [temp_0]";
 }
 void ir_allocate_reg(char *reg){
     for (int i=0; i<14; i++){
@@ -200,24 +200,21 @@ char *r_based_on_size(char *reg, int type){
         char out[20];
         strcpy(out, reg);
         
-        char c = out[strlen(out)-1];
-        if (c == 'd' || c == 'b' || c == 'w'){
-            out[strlen(out)-1] = '\0';
-        }
-        if (type == 8) {
-            return strdup(out);
-        } else if (type == 4) {
-            strcat(out, ":i32");
-        } else if (type == 2) {
-            strcat(out, ":i16");
-        } else if (type == 1) {
-            strcat(out, ":i8");
+        if (strchr(reg, ':') == NULL) {
+            if (type == 8) {
+                return strdup(out);
+            } else if (type == 4) {
+                strcat(out, ":i32");
+            } else if (type == 2) {
+                strcat(out, ":i16");
+            } else if (type == 1) {
+                strcat(out, ":i8");
+            }
         }
         
         return strdup(out);
     }
     
-    // For anything else, return as-is
     return reg;
 }
 
@@ -261,6 +258,9 @@ char *move(void *generator, AST ast, char *reg){
     char *reg1 = ir_alloc_reg(); \
     char *reg2 = ir_alloc_reg(); \
     char *lhs_ptr = move(generator, *(ast.data.expr.left), reg1); \
+    generator_write_text(generator, "\tpush "); \
+    generator_write_text(generator, reg1); \
+    generator_write_text(generator, "\n"); \
     char *right_ptr = move(generator, *(ast.data.expr.right), reg2); \
     int left = typeinfo_from_reg(lhs_ptr); \
     int right = typeinfo_from_reg(right_ptr); \
@@ -278,7 +278,9 @@ char *move(void *generator, AST ast, char *reg){
     } \
     char *sized_reg1 = r_based_on_size(lhs_ptr, type); \
     right_ptr = r_based_on_size(right_ptr, type); \
-    generator_write_text(generator, "\t"); \
+    generator_write_text(generator, "\tpop "); \
+    generator_write_text(generator, reg1); \
+    generator_write_text(generator, "\n\t"); \
     generator_write_text(generator, _t); \
     generator_write_text(generator, " "); \
     generator_write_text(generator, sized_reg1); \
@@ -287,6 +289,8 @@ char *move(void *generator, AST ast, char *reg){
     generator_write_text(generator, "\n"); \
     free_temp(strdup(reg2));\
     return reg1;
+
+
 
 
 char *ir_generate_expr(void *generator, AST ast){
@@ -654,6 +658,7 @@ void ir_generate_ast(void *generator, AST ast){
         generator_write_text(generator, "%func ");
         generator_write_text(generator, ast.data.funcdef.name);
         generator_write_text(generator, " {\n");
+        generator_write_text(generator, "\t%local temp_0, 8\n");
         for (int i=0; i<ast.data.funcdef.argslen; i++){
             Argument arg = *ast.data.funcdef.args[i];
             int typeinfo = typeinfo_to_len(arg.type);
