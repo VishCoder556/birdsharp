@@ -35,6 +35,7 @@ typedef struct {
 typedef struct {
     bool variable_alias;
     bool constant_folding;
+    bool inline_ifs;
 }Mode;
 
 TC_Scope *current_scope = NULL;
@@ -65,6 +66,7 @@ void optimize_speed(){
     }
     current_mode->variable_alias = true;
     current_mode->constant_folding = true;
+    current_mode->inline_ifs = true;
 };
 
 
@@ -430,8 +432,9 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         };
         for (int i=0; i<externlen; i++){
             if (strcmp(externs[i], ast->data.funcall.name) == 0){
-                ast->data.funcall.name -= 1;
-                ast->data.funcall.name[0] = '_';
+                char new[100];
+                snprintf(new, 100, "_%s", ast->data.funcall.name);
+                ast->data.funcall.name = strdup(new);
                 a = 2;
             };
         }
@@ -522,23 +525,45 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         AST_TypeInfo type = fetch_type(typechecker, ast->data.if1.block.condition);
         typechecker_eat(typechecker, ast->data.if1.block.condition);
         AST *cond = aliases(ast->data.if1.block.condition);
-        if (cond->type == AST_INT){
-            int true1 = atoi(cond->data.arg.value) >= 1;
-            if (true1){
-                ast->data.if1.elseiflen = 0;
-                ast->data.if1.elselen = 0;
-            };
+        if (cond != NULL && current_mode->inline_ifs){
+            if (cond->type == AST_INT){
+                int true1 = atoi(cond->data.arg.value) >= 1;
+                if (true1) {
+                    AST *block_start = ast->data.if1.block.statements;
+                    AST *original_next = ast->next;
+
+                    if (block_start != NULL) {
+                        AST *last = block_start;
+                        while (last->next != NULL) {
+                            last = last->next;
+                        }
+                        last->next = original_next;
+                        *ast = *block_start; 
+                    } else {
+                        ast->type = AST_UNKNOWN; 
+                        ast->next = original_next;
+                    }
+                    
+                    return;
+                }
+            }
         }
+        AST *statement = ast->data.if1.block.statements;
         for (int i=0; i<ast->data.if1.block.statementlen; i++){
-            typechecker_eat(typechecker, ast->data.if1.block.statements[i]);
+            typechecker_eat(typechecker, statement);
+            statement = statement->next;
         };
         for (int j = 0; j < ast->data.if1.elseiflen; j++) {
+            AST *statement = ast->data.if1.elseif[j].statements;
             for (int i=0; i < ast->data.if1.elseif[j].statementlen; i++){
-                typechecker_eat(typechecker, ast->data.if1.elseif[j].statements[i]);
+                typechecker_eat(typechecker, statement);
+                statement = statement->next;
             }
         };
+        statement = ast->data.if1.else1;
         for (int i=0; i<ast->data.if1.elselen; i++){
-            typechecker_eat(typechecker, ast->data.if1.else1[i]);
+            typechecker_eat(typechecker, statement);
+            statement = statement->next;
         };
     }else if(ast->type == AST_WHILE){
         AST_TypeInfo type = fetch_type(typechecker, ast->data.while1.condition);
@@ -597,13 +622,23 @@ error:
 
 
 
-
+AST *load_ast(Typechecker *typechecker){
+    if (typechecker->cur == 0){
+        return typechecker->asts;
+    }else {
+        AST *ast1 = typechecker->asts;
+        for (int i=0; i<typechecker->cur; i++){
+            ast1 = ast1->next;
+        };
+        return ast1;
+    };
+}
 
 int typechecker_eat_ast(Typechecker *typechecker){
     if (typechecker->astlen == typechecker->cur){
         return -1;
     };
-    typechecker_eat(typechecker, &typechecker->asts[typechecker->cur]);
+    typechecker_eat(typechecker, load_ast(typechecker));
     typechecker->cur++;
     return 0;
 };

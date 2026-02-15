@@ -25,7 +25,7 @@ Generator *_generator_init(Typechecker *typechecker, char *file, Generator_Funct
     Generator *generator = malloc(sizeof(Generator));
     generator->name = typechecker->name;
     generator->cur = 0;
-    generator->asts = typechecker->asts;
+    memcpy(generator->asts, typechecker->asts, typechecker->astlen * sizeof(AST));  // ❌ REMOVE THIS
     generator->astlen = typechecker->astlen;
     generator->functions = functions;
     generator->output = malloc(sizeof(Generator_Output));
@@ -41,13 +41,7 @@ int generator_eat_ast(Generator *generator){
         generator->functions.close(generator);
         return -1;
     };
-    
-    AST *current = generator->asts;
-    for (int i = 0; i < generator->cur; i++){
-        current = current->next;
-    }
-    
-    generator->functions.generate_ast(generator, *current);
+    generator->functions.generate_ast(generator, generator->asts[generator->cur]);
     generator->cur++;
     return 0;
 };

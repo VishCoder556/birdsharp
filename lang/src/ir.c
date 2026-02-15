@@ -571,11 +571,6 @@ void ir_generate_stmnt(void *generator, AST ast){
             move(generator, *(ast.data.assign.assignto), strdup(string));
         }
     }else if(ast.type == AST_IF){
-        if (ast.data.if1.elseiflen == 0 && ast.data.if1.elselen == 0 && is_immediate(ast.data.if1.block.condition)){
-            for (int i=0; i < ast.data.if1.block.statementlen; i++){
-                ir_generate_stmnt(generator, *(ast.data.if1.block.statements[i]));
-            }
-        }else {
         char end_lbl[100];
         snprintf(end_lbl, 100, "_LBC_END_%d", lblN++);
 
@@ -591,12 +586,15 @@ void ir_generate_stmnt(void *generator, AST ast){
         generator_write_text(generator, reg);
         generator_write_text(generator, "\n");
 
+        AST *statement = ast.data.if1.block.statements;
         for (int i=0; i < ast.data.if1.block.statementlen; i++){
-            ir_generate_stmnt(generator, *(ast.data.if1.block.statements[i]));
+            ir_generate_stmnt(generator, *statement);
+            statement = statement->next;
         }
         generator_write_text(generator, "\tjump label ");
         generator_write_text(generator, end_lbl);
         generator_write_text(generator, "\n");
+
 
         for (int j = 0; j < ast.data.if1.elseiflen; j++) {
             generator_write_text(generator, "%label ");
@@ -612,9 +610,10 @@ void ir_generate_stmnt(void *generator, AST ast){
             generator_write_text(generator, " ifnot ");
             generator_write_text(generator, reg);
             generator_write_text(generator, "\n");
-
+            statement = ast.data.if1.elseif[j].statements;
             for (int i=0; i < ast.data.if1.elseif[j].statementlen; i++){
-                ir_generate_stmnt(generator, *(ast.data.if1.elseif[j].statements[i]));
+                ir_generate_stmnt(generator, *statement);
+                statement = statement->next;
             }
             generator_write_text(generator, "\tjump label ");
             generator_write_text(generator, end_lbl);
@@ -624,8 +623,10 @@ void ir_generate_stmnt(void *generator, AST ast){
         generator_write_text(generator, "%label ");
         generator_write_text(generator, next_branch_lbl);
         generator_write_text(generator, " {\n");
+        statement = ast.data.if1.else1;
         for (int i=0; i < ast.data.if1.elselen; i++){
-            ir_generate_stmnt(generator, *ast.data.if1.else1[i]);
+            ir_generate_stmnt(generator, *statement);
+            statement = statement->next;
         }
         generator_write_text(generator, "\tjump label ");
         generator_write_text(generator, end_lbl);
@@ -637,7 +638,6 @@ void ir_generate_stmnt(void *generator, AST ast){
         generator_write_text(generator, " {\n}\n");
 
         free_temp(strdup(reg));
-        }
     }else if(ast.type == AST_WHILE){
         char string[100];
         snprintf(string, 100, "_LBC%d", lblN++);

@@ -166,13 +166,13 @@ typedef struct {
     int argslen;
 } AST_FuncCall;
 typedef struct {
-    AST **statements;
+    AST *statements;
     int statementlen;
     AST *condition;
 }Block;
 typedef struct {
     Block block;
-    AST **else1;
+    AST *else1;
     int elselen;
     Block *elseif;
     int elseiflen;
@@ -251,6 +251,7 @@ struct AST {
     int row;
     int col;
     char *filename;
+    AST *next;
 };
 
 
@@ -692,7 +693,35 @@ void parser_peek(Parser *parser){
         error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->tokenlen-1].row, parser->tokens[parser->tokenlen-1].col, parser->tokens[parser->cur].name);
     };
 };
+void append_ast_to_list(AST **head, AST *new_node, int *count) {
+    new_node->next = NULL;
+    if (*head == NULL) {
+        *head = new_node;
+        *count = 1;
+    } else {
+        AST *current = *head;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = new_node;
+        (*count)++;
+    }
+}
 
+void store_ast(Parser *parser, AST *ast){
+    ast->next = NULL;
+    
+    if (parser->astlen == 0){
+        parser->asts = ast;
+    } else {
+        AST *ast1 = parser->asts;
+        for (int i=0; i<parser->astlen-1; i++){
+            ast1 = ast1->next;
+        };
+        ast1->next = ast;
+    };
+    parser->astlen++;
+}
 void parser_expect_next(Parser *parser, int type){
     if (parser->cur+1 != parser->tokenlen){
         parser_peek(parser);
@@ -749,20 +778,6 @@ char try_parse_mode(Parser *parser, AST *ast){
             char name[500];
             strcpy(name, "");
             parser->cur++;
-            if (strcmp(parser->tokens[parser->cur].value, "if") == 0){ // AST Mode If Statement
-                ast->type = AST_MODE_IF;
-                parser_peek(parser);
-                ast->data.if1 = (AST_If){};
-                ast->data.if1.block.condition = mode_parse_expr(parser);
-                ast->data.if1.block.statements = malloc(sizeof(AST*) * 100);
-                ast->data.if1.block.statementlen = 0;
-                parser_expect(parser, TOKEN_LB);
-                while (parser->tokens[parser->cur].type != TOKEN_RB){
-                    ast->data.if1.block.statements[ast->data.if1.block.statementlen++] = parser_eat_ast(parser);
-                };
-                parser_peek(parser);
-                return 0;
-            };
             while (parser->tokens[parser->cur].type != TOKEN_EOF && parser->tokens[parser->cur].type != TOKEN_EQ){
                 strncat(name, parser->tokens[parser->cur].value, 100);
                 if (strcmp(name, "extern") == 0){
@@ -1180,9 +1195,9 @@ AST *parser_eat_ast(Parser *parser){
             ast->data.if1.block.condition = parser_eat_expr(parser);
             parser_expect(parser, TOKEN_LB);
 
-            ast->data.if1.block.statements = malloc(sizeof(AST*) * 100);
+            ast->data.if1.block.statements = malloc(sizeof(AST));
             ast->data.if1.block.statementlen = 0;
-            ast->data.if1.else1 = malloc(sizeof(AST*) * 100);
+            ast->data.if1.else1 = malloc(sizeof(AST));
             ast->data.if1.elseif = malloc(sizeof(Block) * 100);
             ast->data.if1.elselen = 0;
             ast->data.if1.elseiflen = 0;
@@ -1190,15 +1205,27 @@ AST *parser_eat_ast(Parser *parser){
             Token prev = {0};
             int c = 0;
 
+            AST *start = NULL;
+            AST *_current = NULL;
             while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
                 if (parser->tokens[parser->cur].type == prev.type && strcmp(parser->tokens[parser->cur].value, prev.value) == 0){
                     if (++c > 10000) error_generate_parser("SyntaxError", "Infinite loop detected", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
                 } else {
                     c = 0;
                 }
-                ast->data.if1.block.statements[ast->data.if1.block.statementlen++] = parser_eat_ast(parser);
+                AST* new_node = malloc(sizeof(AST));
+                *new_node = *(parser_eat_ast(parser));
+                if (start == NULL) {
+                    start = new_node;
+                    _current = new_node;
+                } else {
+                    _current->next = new_node;
+                    _current = new_node;
+                }
+                ast->data.if1.block.statementlen++;
                 prev = parser->tokens[parser->cur];
             }
+            ast->data.if1.block.statements = start;
             parser_expect(parser, TOKEN_RB);
 
             while (parser->cur < parser->tokenlen && strcmp(parser->tokens[parser->cur].value, "else") == 0){
@@ -1216,17 +1243,41 @@ AST *parser_eat_ast(Parser *parser){
 
                     prev = (Token){0};
                     c = 0;
+                    start = NULL;
+                    _current = NULL;
                     while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                        ast->data.if1.elseif[ei].statements[ast->data.if1.elseif[ei].statementlen++] = parser_eat_ast(parser);
+                        AST* new_node = malloc(sizeof(AST));
+                        *new_node = *(parser_eat_ast(parser));
+                        if (start == NULL) {
+                            start = new_node;
+                            _current = new_node;
+                        } else {
+                            _current->next = new_node;
+                            _current = new_node;
+                        }
+                        ast->data.if1.elseif[ei].statementlen++;
                     }
+                    ast->data.if1.elseif[ei].statements = start;
                     ast->data.if1.elseiflen++;
                     parser_expect(parser, TOKEN_RB);
                 } else {
                     parser_expect(parser, TOKEN_LB);
                     prev = (Token){0};
+                    start = NULL;
+                    _current = NULL;
                     while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                        ast->data.if1.else1[ast->data.if1.elselen++] = parser_eat_ast(parser);
+                        AST* new_node = malloc(sizeof(AST));
+                        *new_node = *(parser_eat_ast(parser));
+                        if (start == NULL) {
+                            start = new_node;
+                            _current = new_node;
+                        } else {
+                            _current->next = new_node;
+                            _current = new_node;
+                        }
+                        ast->data.if1.elselen++;
                     }
+                    ast->data.if1.else1 = start;
                     parser_expect(parser, TOKEN_RB);
                     break; 
                 }
@@ -1411,9 +1462,11 @@ char parser_eat(Parser *parser){
         return -1;
     };
     Token token = parser->tokens[parser->cur];
-    parser->asts[parser->astlen++] = parser_eat_body(parser);
-    parser->asts[parser->astlen-1].row = token.row;
-    parser->asts[parser->astlen-1].col = token.col;
+    AST *ast = malloc(sizeof(AST));
+    *ast = parser_eat_body(parser);
+    ast->row = token.row;
+    ast->col = token.col;
+    store_ast(parser, ast);
     return 0;
 };
 
@@ -1488,7 +1541,7 @@ int main(int argc, char **argv){
     fprintf(stdout, "[INFO] Preprocessor process took %.4f milliseconds\n", (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6);
     Parser *parser = malloc(sizeof(Parser));
     parser->name = tokenizer->name;
-    parser->asts = malloc(sizeof(AST) * 9000);
+    parser->asts = NULL;
     parser->astlen = 0;
     parser->cur = 0;
     parser->tokens = tokenizer->tokens;
@@ -1521,7 +1574,12 @@ int main(int argc, char **argv){
     free(tokenizer->tokens);
     free(tokenizer);
     free(generator);
-    free(parser->asts);
+    AST *current = parser->asts;
+    while (current != NULL) {
+        AST *next = current->next;
+        free(current);
+        current = next;
+    }
     free(parser);
     free(typechecker);
     fprintf(stdout, "[INFO] Program took %.4f milliseconds\n", (__end.tv_sec - __begin.tv_sec) * 1000.0 +
