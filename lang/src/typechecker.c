@@ -294,13 +294,13 @@ AST *aliases(AST *var){
         AST *assign = var->data.optvar.opt;
         if (assign != NULL){
             if (assign->data.assign.alias){
-                return assign->data.assign.assignto;
+                return aliases(assign->data.assign.assignto);
             }
         }
     }else if(var->type == AST_EXPR){
-        return var->data.expr.left;
+        return aliases(var->data.expr.left);
     }else if(var->type == AST_CAST){
-        return var->data.expr.left;
+        return aliases(var->data.expr.left);
     }
     return var;
 }
