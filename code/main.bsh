@@ -1,3 +1,4 @@
+#!optimize speed
 #!include "std.bsh"
 
 int main(long argc, char **argv) {
@@ -10,6 +11,9 @@ int main(long argc, char **argv) {
     print(int_to_string(result));
     print("\n");
     
-    exit(0);
+    if (3 <= 2){
+        exit(1)
+    }
+    exit(0)
     return 0;
 }

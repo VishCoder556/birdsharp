@@ -226,6 +226,7 @@ extr:
         parser_expect(parser, TOKEN_ID);
         ast->typeinfo = name_to_size(token.value);
     };
+    token = parser->tokens[parser->cur];
     if (token.type == TOKEN_EQ){
         parser_peek(parser);
         parser_expect(parser, TOKEN_EQ);
@@ -375,7 +376,8 @@ AST *parser_eat_ast(Parser *parser){
     Token token = parser->tokens[parser->cur];
     Token orig = parser->tokens[parser->cur];
     AST *ast = malloc(sizeof(AST));
-    if (orig.type == TOKEN_EXC) exit(0);
+    // if (orig.type == TOKEN_EXC) exit(0);
+    // printf("End\n");
     if (token.type == TOKEN_ID){
         if (string_compare(token.value, "syscall", 7) == 0){
             parser_peek(parser);
@@ -508,6 +510,7 @@ AST *parser_eat_body(Parser *parser){
     AST *ast = malloc(sizeof(AST));
     Token token = parser->tokens[parser->cur];
     Token orig = parser->tokens[parser->cur];
+
     if (token.type == TOKEN_MODULO){
         parser_peek(parser);
         token = parser->tokens[parser->cur];

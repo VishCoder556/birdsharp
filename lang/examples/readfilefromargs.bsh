@@ -11,6 +11,7 @@ int exit(int ret){
     return 0
 }
 
+
 int print(char *str){
     syscall(33554436, 1, str, string_len(str))
     return 0
@@ -21,9 +22,11 @@ int printerr(char *str){
     return 0
 }
 
+
 int *malloc(long size){
     return cast(int*, syscall(0x20000c5, 0, size, 3, 4098, -1, 0))
 }
+
 
 char *int_to_string(int num){
     if (num == 0){

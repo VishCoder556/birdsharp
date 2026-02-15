@@ -178,6 +178,10 @@ typedef struct {
     int elseiflen;
 } AST_If;
 typedef struct {
+    char *value;
+    AST *opt;
+} AST_OptVar;
+typedef struct {
     AST *condition;
     AST **block;
     int blocklen;
@@ -187,6 +191,7 @@ typedef struct {
     AST *from;
     AST *assignto;
     bool new;
+    bool alias;
 } AST_Assign;
 
 typedef struct {
@@ -236,6 +241,7 @@ typedef union {
     AST_While while1;
     AST_Mode mode;
     AST_Struct struct1;
+    AST_OptVar optvar;
 } AST_Data;
 
 struct AST {
@@ -761,6 +767,8 @@ char try_parse_mode(Parser *parser, AST *ast){
                 strncat(name, parser->tokens[parser->cur].value, 100);
                 if (strcmp(name, "extern") == 0){
                     break;
+                }else if (strcmp(name, "optimize") == 0){
+                    break;
                 };
                 parser->cur++;
             }
@@ -822,7 +830,15 @@ AST* rotate_to_left(AST* parent) {
 
     return parent;
 }
+bool is_immediate(AST *ast){
+    switch (ast->type){
+        case AST_INT: return true;
+        case AST_CAST: return is_immediate(ast->data.expr.left);
+        default: return false;
+    }
 
+    return false;
+};
 
 AST *parser_eat_expr(Parser *parser){
     Token token_1 = parser->tokens[parser->cur];
@@ -1250,11 +1266,15 @@ AST *parser_eat_ast(Parser *parser){
                 parser_expect(parser, TOKEN_ID);
                 parser->cur--;
                 ast->data.assign.new = true;
+                ast->data.assign.alias = false;
                 ast->data.assign.from = parser_eat_expr(parser); // Even though we technically don't expect it to be expression, this is used for consistency
                 ast->data.assign.from->typeinfo = ast->typeinfo;
                 if (parser->tokens[parser->cur].type == TOKEN_EQ){
                     parser_peek(parser);
                     ast->data.assign.assignto = parser_eat_expr(parser);
+                    if (is_immediate(ast->data.assign.assignto)){
+                        ast->data.assign.alias = true;
+                    }
                 }else {
                     ast->data.assign.assignto = malloc(sizeof(*(ast->data.assign.assignto)));
                     ast->data.assign.assignto->type = AST_UNKNOWN;
@@ -1276,7 +1296,7 @@ AST *parser_eat_ast(Parser *parser){
                     ast->filename = parser->tokens[parser->cur].name;
                     ast->typeinfo.type = "unknown";
                     ast->data.assign.from = ast_expr;
-                    parser_peek(parser);;
+                    parser_peek(parser);
                     ast->data.assign.assignto = parser_eat_expr(parser);
                     return ast;
                 }else if (parser->tokens[parser->cur].type == TOKEN_LP){
@@ -1483,7 +1503,8 @@ int main(int argc, char **argv){
     clock_gettime(CLOCK_MONOTONIC, &__start);
 
     Typechecker *typechecker = typechecker_init(parser);
-    while (typechecker_eat_ast(typechecker) != -1){};
+    while (typechecker_eat_ast(typechecker) != -1){
+    };
 
     clock_gettime(CLOCK_MONOTONIC, &__end);
     fprintf(stdout, "[INFO] Typechecking process took %.4f milliseconds\n", (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6);

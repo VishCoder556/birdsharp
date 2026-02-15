@@ -37,7 +37,7 @@ char *ir_alloc_reg() {
             };
         };
     }
-    return "i64 [temp_0]";
+    return "i64 [_temp_0]";
 }
 void ir_allocate_reg(char *reg){
     for (int i=0; i<14; i++){
@@ -258,9 +258,6 @@ char *move(void *generator, AST ast, char *reg){
     char *reg1 = ir_alloc_reg(); \
     char *reg2 = ir_alloc_reg(); \
     char *lhs_ptr = move(generator, *(ast.data.expr.left), reg1); \
-    generator_write_text(generator, "\tpush "); \
-    generator_write_text(generator, reg1); \
-    generator_write_text(generator, "\n"); \
     char *right_ptr = move(generator, *(ast.data.expr.right), reg2); \
     int left = typeinfo_from_reg(lhs_ptr); \
     int right = typeinfo_from_reg(right_ptr); \
@@ -278,19 +275,16 @@ char *move(void *generator, AST ast, char *reg){
     } \
     char *sized_reg1 = r_based_on_size(lhs_ptr, type); \
     right_ptr = r_based_on_size(right_ptr, type); \
-    generator_write_text(generator, "\tpop "); \
-    generator_write_text(generator, reg1); \
-    generator_write_text(generator, "\n\t"); \
+    generator_write_text(generator, "\t"); \
     generator_write_text(generator, _t); \
     generator_write_text(generator, " "); \
     generator_write_text(generator, sized_reg1); \
     generator_write_text(generator, ", "); \
     generator_write_text(generator, right_ptr); \
     generator_write_text(generator, "\n"); \
-    free_temp(strdup(reg2));\
+    free_temp(strdup(reg1)); \
+    free_temp(strdup(reg2)); \
     return reg1;
-
-
 
 
 char *ir_generate_expr(void *generator, AST ast){
@@ -355,6 +349,12 @@ char *ir_generate_expr(void *generator, AST ast){
     }else if(ast.type == AST_EXPR){
         return ir_generate_expr(generator, *ast.data.expr.left);
     }else if (ast.type == AST_VAR){
+        AST *assign = ast.data.optvar.opt;
+        if (assign != NULL){
+            if (assign->data.assign.alias){
+                return ir_generate_expr(generator, *assign->data.assign.assignto);
+            }
+        }
         char string[100];
         snprintf(string, 100, "%s [%s]", len_to_selector(typeinfo_to_len(ast.typeinfo)), ast.data.arg.value);
         return strdup(string);
@@ -393,8 +393,18 @@ char *ir_generate_expr(void *generator, AST ast){
     }else if(ast.type == AST_GT){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
+        int lhslen = typeinfo_to_len(ast.data.expr.left->typeinfo);
+        int rhslen = typeinfo_to_len(ast.data.expr.right->typeinfo);
+        rhs = r_based_on_size(rhs, rhslen);
+        lhs = r_based_on_size(lhs, lhslen);
+        if (lhslen > rhslen){
+            rhs = r_based_on_size(rhs, lhslen);
+        }else {
+            lhs = r_based_on_size(lhs, rhslen);
+        }
         char string[100];
         snprintf(string, 100, "%s < %s", lhs, rhs);
+        // printf("{%d, %d, %s}\n", lhslen, rhslen, strdup(string));
         free_temp(strdup(lhs));
         free_temp(strdup(rhs));
         return strdup(string);
@@ -457,6 +467,8 @@ char *ir_generate_expr(void *generator, AST ast){
         char *r = move_imm(generator, strdup(string), r_based_on_size(val_reg, typeinfo), ast.typeinfo);
         free_temp(strdup(address_reg));
         return r;
+    }else if(ast.type == AST_MODE){
+
     }else {
         char string[100];
         snprintf(string, 100, "Unknown type found: '%d'", ast.type);
@@ -511,6 +523,9 @@ void ir_generate_stmnt(void *generator, AST ast){
         char string[100];
         int typeinfo = typeinfo_to_len(ast.typeinfo);
         char *var = ir_generate_lhs(generator, *ast.data.assign.from);
+        if (ast.data.assign.alias){
+            return;
+        }
         if (ast.data.assign.from->type == AST_VAR && ast.data.assign.new == true) {
             generator_write_text(generator, "\t%local ");
             generator_write_text(generator, var);
@@ -556,6 +571,11 @@ void ir_generate_stmnt(void *generator, AST ast){
             move(generator, *(ast.data.assign.assignto), strdup(string));
         }
     }else if(ast.type == AST_IF){
+        if (ast.data.if1.elseiflen == 0 && ast.data.if1.elselen == 0 && is_immediate(ast.data.if1.block.condition)){
+            for (int i=0; i < ast.data.if1.block.statementlen; i++){
+                ir_generate_stmnt(generator, *(ast.data.if1.block.statements[i]));
+            }
+        }else {
         char end_lbl[100];
         snprintf(end_lbl, 100, "_LBC_END_%d", lblN++);
 
@@ -570,7 +590,7 @@ void ir_generate_stmnt(void *generator, AST ast){
         generator_write_text(generator, " ifnot ");
         generator_write_text(generator, reg);
         generator_write_text(generator, "\n");
-        
+
         for (int i=0; i < ast.data.if1.block.statementlen; i++){
             ir_generate_stmnt(generator, *(ast.data.if1.block.statements[i]));
         }
@@ -617,6 +637,7 @@ void ir_generate_stmnt(void *generator, AST ast){
         generator_write_text(generator, " {\n}\n");
 
         free_temp(strdup(reg));
+        }
     }else if(ast.type == AST_WHILE){
         char string[100];
         snprintf(string, 100, "_LBC%d", lblN++);
@@ -658,7 +679,7 @@ void ir_generate_ast(void *generator, AST ast){
         generator_write_text(generator, "%func ");
         generator_write_text(generator, ast.data.funcdef.name);
         generator_write_text(generator, " {\n");
-        generator_write_text(generator, "\t%local temp_0, 8\n");
+        generator_write_text(generator, "\t%local _temp_0, 8\n");
         for (int i=0; i<ast.data.funcdef.argslen; i++){
             Argument arg = *ast.data.funcdef.args[i];
             int typeinfo = typeinfo_to_len(arg.type);
@@ -680,6 +701,8 @@ void ir_generate_ast(void *generator, AST ast){
         strcat(IrData, " = ");
         strcat(IrData, ir_generate_expr(generator, *ast.data.assign.assignto));
         strcat(IrData, "\n");
+    }else if(ast.type == AST_MODE){
+
     }else {
         char string[100];
         snprintf(string, 100, "Unknown type found: '%d'", ast.type);

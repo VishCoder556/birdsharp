@@ -272,6 +272,18 @@ void compiler_compare(Compiler *compiler, AST *ast){
         char *right = compiler_eat_expr(compiler, ast->data.expr.right, -1);
         // compiler_write_text_line(compiler, "mov r12, %s", left);
         char *reg = move(compiler, "r12", left, ast->data.expr.left->typeinfo);
+        int left_t = ast->data.expr.left->typeinfo;
+        int right_t = ast->data.expr.right->typeinfo;
+        int typeinfo = left_t > right_t ? left_t : right_t;
+        AST_Reg _left = reg_real_to_num(left);
+        if (_left.reg != -1) {
+            left = change_reg_size(_left.reg, typeinfo);
+        }
+        AST_Reg _right = reg_real_to_num(right);
+        if (_right.reg != -1) {
+            left = change_reg_size(_right.reg, typeinfo);
+        }
+
         compiler_write_text_line(compiler, "cmp %s, %s", reg, right);
 }
 
