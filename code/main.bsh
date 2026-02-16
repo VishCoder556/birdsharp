@@ -1,21 +1,16 @@
-#!optimize speed
+// #!optimize speed
 #!include "std.bsh"
 
+struct A {
+    long x
+    long y
+}
+
+
 int main(long argc, char **argv) {
-    int a = 1; int b = 2; int c = 3; int d = 4;
-    int e = 5; int f = 6; int g = 7; int h = 8;
-    
-    int result = (a + b) * (c + d) - (e + f) * (g + h) + (a * h) - (b * g);
-    
-    print("Register Pressure Result: ");
-    print(int_to_string(result));
-    print("\n");
-    
-    if (3 <= 3 + 3){
-        exit(1)
-    }else if (1){
-        exit(10)
-    }
-    exit(0)
+    struct A string = cast(struct A, 0)
+    string.x = 10
+    string.y = 20
+    exit(cast(int, string.x + string.y))
     return 0;
 }

@@ -79,10 +79,6 @@ char *int_to_string(int num){
 }
 
 int strcmp(char *str1, char *str2){
-    // print(str1)
-    // print(" = ")
-    // print(str2)
-    // print("\n")
     int str1len = string_len(str1);
     int str2len = string_len(str2);
     if (str1len != str2len) {

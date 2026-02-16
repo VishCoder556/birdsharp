@@ -143,7 +143,9 @@ typedef enum{
     AST_NOT,
     AST_AND,
     AST_OR,
-    AST_INDEX
+    AST_INDEX,
+    AST_STRUCT,
+    AST_ACCESS
 }AST_Type;
 
 typedef struct AST AST;
@@ -214,6 +216,17 @@ typedef struct {
 } AST_FuncDef;
 
 typedef struct {
+    AST_TypeInfo type;
+    char *name;
+}Field;
+
+typedef struct {
+    char *name;
+    Field **fields;
+    int fieldlen;
+}AST_Struct;
+
+typedef struct {
     AST *left;
     AST *right;
 } AST_Expr;
@@ -222,13 +235,6 @@ typedef struct {
     char *name;
     char *res;
 }AST_Mode;
-
-
-typedef struct {
-    char* name;
-    struct AST** members;
-    int memberlen;
-} AST_Struct;
 
 typedef union {
     AST_FuncDef funcdef;
@@ -391,7 +397,12 @@ char *typeinfo_to_string(AST_TypeInfo typeinfo){
 }
 
 
-
+void parser_peek(Parser *parser){
+    parser->cur++;
+    if (parser->cur > parser->tokenlen){
+        error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->tokenlen-1].row, parser->tokens[parser->tokenlen-1].col, parser->tokens[parser->cur].name);
+    };
+};
 
 char parse_type(Parser *parser, AST_TypeInfo *typeinfo){ // Assumes parser->cur points to the idx of the type 
     /* char c = -1;
@@ -401,17 +412,27 @@ char parse_type(Parser *parser, AST_TypeInfo *typeinfo){ // Assumes parser->cur 
             break;
         };
     }; */
-    typeinfo->type = parser->tokens[parser->cur].value;
+    char res[100];
+    strncpy(res, "", 100);
+    if (strcmp(parser->tokens[parser->cur].value, "struct") == 0){
+        strcat(res, "struct");
+        parser_peek(parser);
+    };
+    strcat(res, parser->tokens[parser->cur].value);
+    typeinfo->type = strdup(res);
     parser->cur++;
     typeinfo->ptrnum = 0;
     while (parser->tokens[parser->cur].type == TOKEN_MUL){
         typeinfo->ptrnum++;
-        parser->cur++;
+        parser_peek(parser);
     };
     return 0;
 }
 char is_type(Parser *parser, Token tok){
     char c = -1;
+    if (strcmp(tok.value, "struct") == 0){
+        return 0;
+    }
     for (int v=0; v<typesLen; v++){
         if (strcmp(types[v].name, tok.value) == 0){
             c = v;
@@ -687,12 +708,7 @@ void add_idx(Token arr[], int *len, int index) {
     (*len)++;
 }
 
-void parser_peek(Parser *parser){
-    parser->cur++;
-    if (parser->cur > parser->tokenlen){
-        error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->tokenlen-1].row, parser->tokens[parser->tokenlen-1].col, parser->tokens[parser->cur].name);
-    };
-};
+
 void append_ast_to_list(AST **head, AST *new_node, int *count) {
     new_node->next = NULL;
     if (*head == NULL) {
@@ -972,6 +988,29 @@ AST *parser_eat_expr(Parser *parser){
         };
     }
 
+    if (parser->tokens[parser->cur].type == TOKEN_DOT){
+        AST *ast2 = malloc(sizeof(AST));
+        ast2->type = AST_ACCESS;
+        ast2->row = parser->tokens[parser->cur].row;
+        ast2->col = parser->tokens[parser->cur].col;
+        ast2->filename = parser->tokens[parser->cur].name;
+        ast2->data.expr.left = ast;
+        parser_peek(parser);
+        
+        if (parser->tokens[parser->cur].type != TOKEN_ID) {
+            error_generate_parser("SyntaxError", "Expected identifier after '.'", 
+                                parser->tokens[parser->cur].row, 
+                                parser->tokens[parser->cur].col, 
+                                parser->name);
+        }
+        
+        ast2->data.expr.right = malloc(sizeof(AST));
+        ast2->data.expr.right->type = AST_VAR;
+        ast2->data.expr.right->data.arg.value = parser->tokens[parser->cur].value;
+        parser_peek(parser);
+        
+        ast = ast2;
+    }
     if (parser->tokens[parser->cur].type == TOKEN_LBRACKET){
         AST *ast2 = malloc(sizeof(AST));
         ast2->type = AST_INDEX;
@@ -1391,6 +1430,13 @@ AST *parser_eat_ast(Parser *parser){
     return ast;
 }
 
+Field *create_field(char *name, AST_TypeInfo type){
+    Field *field = malloc(sizeof(Field));
+    field->type = type;
+    field->name = name;
+    return field;
+}
+
 AST parser_eat_body(Parser *parser){
     int av = parser->cur;
     AST ast = (AST){};
@@ -1402,7 +1448,27 @@ AST parser_eat_body(Parser *parser){
     };
     ast.type = AST_UNKNOWN;
     if (parser->tokens[parser->cur].type == TOKEN_ID){
-        if(is_type(parser, parser->tokens[parser->cur]) == 0){
+        if(strcmp(parser->tokens[parser->cur].value, "struct") == 0){
+            ast.type = AST_STRUCT;
+            parser_expect(parser, TOKEN_ID);
+            ast.data.struct1.name = strdup(parser->tokens[parser->cur].value);
+            parser_expect(parser, TOKEN_ID);
+            parser_expect(parser, TOKEN_LB);
+            ast.data.struct1.fields = malloc(sizeof(Field*) * 100);
+            ast.data.struct1.fieldlen = 0;
+            char strin[100];
+            snprintf(strin, 100, "struct%s", ast.data.struct1.name);
+            types[typesLen++] = (struct Pair){strin, 0, "Structure"};
+            while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
+                AST_TypeInfo *type = malloc(sizeof(AST_TypeInfo));
+                parse_type(parser, type);
+                char *field_name = parser->tokens[parser->cur].value;
+                parser_peek(parser);
+                
+                ast.data.struct1.fields[ast.data.struct1.fieldlen++] = create_field(field_name, *type);
+            };
+            parser_expect(parser, TOKEN_RB);
+        }else if(is_type(parser, parser->tokens[parser->cur]) == 0){
             ast.type = AST_ASSIGN;
             parse_type(parser, &ast.typeinfo);
             ast.data.assign.from = malloc(sizeof(struct AST));

@@ -356,6 +356,11 @@ char *ir_generate_expr(void *generator, AST ast){
             }
         }
         char string[100];
+        if (ast.typeinfo.type != NULL && strncmp(ast.typeinfo.type, "struct", 6) == 0){
+            // Return just the variable name (which is an address for locals)
+            snprintf(string, 100, "&%s", ast.data.arg.value);
+            return strdup(string);
+        }
         snprintf(string, 100, "%s [%s]", len_to_selector(typeinfo_to_len(ast.typeinfo)), ast.data.arg.value);
         return strdup(string);
     }else if(ast.type == AST_SYSCALL){
@@ -468,7 +473,7 @@ char *ir_generate_expr(void *generator, AST ast){
         free_temp(strdup(address_reg));
         return r;
     }else if(ast.type == AST_MODE){
-
+        ;
     }else {
         char string[100];
         snprintf(string, 100, "Unknown type found: '%d'", ast.type);
@@ -703,6 +708,8 @@ void ir_generate_ast(void *generator, AST ast){
         strcat(IrData, "\n");
     }else if(ast.type == AST_MODE){
 
+    }else if(ast.type == AST_STRUCT){
+        ;
     }else {
         char string[100];
         snprintf(string, 100, "Unknown type found: '%d'", ast.type);

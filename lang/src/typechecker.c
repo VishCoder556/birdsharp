@@ -42,6 +42,43 @@ TC_Scope *current_scope = NULL;
 TC_Scope *global_scope;
 Mode *current_mode;
 
+typedef struct {
+    char *name;
+    AST_TypeInfo type;
+    int offset;
+} TC_Field;
+
+typedef struct {
+    char *name;
+    TC_Field *fields;
+    int field_count;
+    int size;
+} TC_Struct;
+
+TC_Struct structs[100];
+int struct_count = 0;
+
+TC_Struct find_struct(char *name){
+    if (strncmp(name, "struct", strlen("struct")) == 0){
+        name += strlen("struct");
+    };
+    for (int i=0; i<struct_count; i++){
+        if (strcmp(structs[i].name, name) == 0){
+            return structs[i];
+        }
+    }
+    return (TC_Struct){0};
+};
+
+TC_Field find_field(TC_Struct struct1, char *name){
+    for (int i=0; i<struct1.field_count; i++){
+        if (strcmp(struct1.fields[i].name, name) == 0){
+            return struct1.fields[i];
+        };
+    };
+    return (TC_Field){0};
+};
+
 int is_expression(AST ast){
     switch (ast.type){
         case AST_PLUS: return 1;
@@ -89,6 +126,24 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast);
 TC_Variable *find_variable_in_scopes(Typechecker *typechecker, AST *_ast, int *p){
     AST ast = *_ast;
     if (ast.type == AST_DEREF || ast.type == AST_INDEX){
+        TC_Variable *var = find_variable_in_scopes(typechecker, ast.data.expr.left, NULL);
+        if (var != NULL){
+            if (strcmp(var->name, "")){
+                TC_Variable *copy = malloc(sizeof(TC_Variable));
+                *copy = *var;
+                copy->type = fetch_type(typechecker, _ast);
+                return copy;
+            };
+        };
+        var = find_variable_in_scopes(typechecker, ast.data.expr.right, NULL);
+        if (var != NULL){
+            if (strcmp(var->name, "")){
+                TC_Variable *copy = malloc(sizeof(TC_Variable));
+                *copy = *var;
+                copy->type = fetch_type(typechecker, _ast);
+                return copy;
+            };
+        }
         TC_Variable *variable = malloc(sizeof(TC_Variable));
         variable->name = "";
         variable->type = fetch_type(typechecker, _ast);
@@ -110,11 +165,13 @@ TC_Variable *find_variable_in_scopes(Typechecker *typechecker, AST *_ast, int *p
             return global_scope->variables + i;
         };
     };
+    if (ast.type != AST_VAR) return NULL;
     char string[100];
     snprintf(string, 100, "Variable \"%s\" doesn't exist", ast.data.arg.value);
     error_generate_parser("VarError", string, ast.row, ast.col, ast.filename);
     return NULL;
 }
+
 
 Typechecker *typechecker_init(Parser *parser){
     Typechecker *typechecker = malloc(sizeof(Typechecker));
@@ -161,6 +218,7 @@ bool are_equal(AST_TypeInfo *left, AST_TypeInfo *right){
 void typechecker_eat(Typechecker *typechecker, AST *ast);
 AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
     AST ast = *_ast;
+    
     if (ast.type == AST_RET){
         return fetch_type(typechecker, (ast.data.ret.ret));
     }else if(ast.type == AST_VAR){
@@ -233,6 +291,11 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
             type.ptrnum--;
         };
         return type;
+    }else if(ast.type == AST_ACCESS){
+        AST_TypeInfo base_type = fetch_type(typechecker, ast.data.expr.left);
+        TC_Struct struct1 = find_struct(base_type.type);
+        TC_Field field = find_field(struct1, ast.data.expr.right->data.arg.value);
+        return field.type;
     }else if(ast.type == AST_IF || ast.type == AST_WHILE){
         return (AST_TypeInfo){"bool", 0};
     }else if(ast.type == AST_NOT){
@@ -255,7 +318,7 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
     };
 
     if (ast.typeinfo.type){
-        if (strcmp(ast.typeinfo.type, "")){
+        if (strcmp(ast.typeinfo.type, "") != 0){
             return ast.typeinfo;
         }
     };
@@ -277,7 +340,56 @@ int typeinfo_to_len(AST_TypeInfo type){
     };
     return 0;
 };
+void typechecker_eat(Typechecker *typechecker, AST *ast);
+void typechecker_access(Typechecker *typechecker, AST *ast){
+    
+    // 1. Prevent infinite recursion
+    if (ast->type == AST_CAST && ast->data.expr.left && ast->data.expr.left->type == AST_INDEX) {
+        return; 
+    }
 
+    typechecker_eat(typechecker, ast->data.expr.left);
+    
+    TC_Struct struct1 = find_struct(ast->data.expr.left->typeinfo.type);
+    TC_Field field = find_field(struct1, ast->data.expr.right->data.arg.value);
+
+    AST *original_base = ast->data.expr.left; 
+
+    #define NEW_NODE() calloc(1, sizeof(AST))
+
+    AST *cast_ptr = NEW_NODE();
+    cast_ptr->type = AST_CAST;
+    cast_ptr->typeinfo = (AST_TypeInfo){"char", 1};
+    cast_ptr->data.expr.left = original_base;
+
+    AST *off_node = NEW_NODE();
+    off_node->type = AST_INT;
+    off_node->typeinfo = (AST_TypeInfo){"int", 0};
+    char off_str[10];
+    snprintf(off_str, 10, "%d", field.offset);
+    off_node->data.arg.value = strdup(off_str);
+
+    // Plus Node: (char*)base + offset
+    AST *plus_node = NEW_NODE();
+    plus_node->type = AST_PLUS;
+    plus_node->typeinfo = (AST_TypeInfo){"char", 1};
+    plus_node->data.expr.left = cast_ptr;
+    plus_node->data.expr.right = off_node;
+
+    // Index Node: [0]
+    AST *index_node = NEW_NODE();
+    index_node->type = AST_INDEX;
+    index_node->typeinfo = field.type; // The actual type of the member
+    index_node->data.expr.left = plus_node;
+    index_node->data.expr.right = NEW_NODE();
+    index_node->data.expr.right->type = AST_INT;
+    index_node->data.expr.right->data.arg.value = strdup("0");
+
+    // Rewrite the original node
+    ast->type = AST_CAST;
+    ast->typeinfo = field.type;
+    ast->data.expr.left = index_node;
+}
 
 void typechecker_eat_lhs(Typechecker *typechecker, AST *ast){
     if (ast->type == AST_VAR){
@@ -285,6 +397,8 @@ void typechecker_eat_lhs(Typechecker *typechecker, AST *ast){
         if (var->value != NULL){
             var->value->data.assign.alias = false;
         }
+    }else if(ast->type == AST_ACCESS){
+        typechecker_access(typechecker, ast);
     }
 };
 
@@ -304,6 +418,8 @@ AST *aliases(AST *var){
     }
     return var;
 }
+
+
 
 
 void typechecker_eat(Typechecker *typechecker, AST *ast){
@@ -384,10 +500,12 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
             char *name = ast->data.assign.from->data.arg.value;
             int *p = malloc(sizeof(int));
             TC_Variable *var = find_variable_in_scopes(typechecker, ast->data.assign.from, p);
-            if (var->value != NULL){
-                var->value->data.assign.alias = false;
+            if (var != NULL){
+                if (var->value != NULL){
+                    var->value->data.assign.alias = false;
+                }
             }
-            expected = var->type;
+            expected = fetch_type(typechecker, ast->data.assign.from);
             if (*p == 2 && is_block){ // Global scope
                 error_generate_parser("GlobalVarError", "Global variables cannot be re-assigned.", ast->data.assign.from->row, ast->data.assign.from->col, ast->data.assign.from->filename);
             }
@@ -491,6 +609,7 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         };
 
         ast->typeinfo = fetch_type(typechecker, ast);
+        return;
     }else if (ast->type == AST_GT || ast->type == AST_GTE || ast->type == AST_LT || ast->type == AST_LTE || ast->type == AST_EQ || ast->type == AST_NEQ){
         typechecker_eat(typechecker, ast->data.expr.left);
         typechecker_eat(typechecker, ast->data.expr.right);
@@ -613,6 +732,28 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         }else if (strcmp(ast->data.mode.name, "optimize") == 0){
             optimize_speed();
         };
+    }else if(ast->type == AST_STRUCT){
+        TC_Struct *s = &structs[struct_count++];
+        s->name = ast->data.struct1.name;
+        s->field_count = ast->data.struct1.fieldlen;
+        s->fields = malloc(sizeof(TC_Field) * s->field_count);
+        
+        int offset = 0;
+        for (int i = 0; i < s->field_count; i++) {
+            Field *field = ast->data.struct1.fields[i];
+            s->fields[i].name = field->name;
+            s->fields[i].type = field->type;
+            s->fields[i].offset = offset;
+            
+            int field_size = typeinfo_to_len(field->type);
+            offset += field_size;
+        }
+        s->size = offset;
+        char string[100];
+        snprintf(string, 100, "struct%s", ast->data.struct1.name);
+        types[typesLen++] = (struct Pair){strdup(string), s->size, "structure"};
+    }else if(ast->type == AST_ACCESS){
+        typechecker_access(typechecker, ast);
     }
     return;
 error:
