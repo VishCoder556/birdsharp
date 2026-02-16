@@ -196,15 +196,27 @@ void compiler_write_line(char *buf, const char *fmt, ...) {
     strcat(buf, add);
     strcat(buf, "\n");
 }
-
 char *format(char *str, int type){
     if (type != AST_STRING){
         return strdup(str);
     }
-    char *out = malloc(100);
+    
+    size_t max_size = strlen(str) * 6 + 10;
+    char *out = malloc(max_size);
+    if (!out) {
+        error_generate("MemoryError", "Failed to allocate memory for format");
+        return NULL;
+    }
+    
     int b = 0;
     out[b++] = '\'';
     for (int i=0; i<strlen(str); i++){
+        if (b >= max_size - 10) {  // Safety check
+            error_generate("BufferError", "Format buffer overflow");
+            free(out);
+            return NULL;
+        }
+        
         if (str[i] == '\n'){
             out[b++] = '\'';
             out[b++] = ',';
@@ -230,8 +242,10 @@ char *format(char *str, int type){
     out[b++] = ',';
     out[b++] = ' ';
     out[b++] = '0';
+    out[b] = '\0';
     return out;
 }
+
 
 char *compiler_eat_expr(Compiler *compiler, AST *ast, int size);
 

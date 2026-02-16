@@ -175,7 +175,7 @@ void reviser_eat_expr(Reviser *reviser, AST *ast){
                 Reviser_Variable *variable1 = reviser_get_variable(reviser->global->scope.variables, i);
                 if (string_compare(variable1->name, ast->data.var.value->data.text.value, strlen(variable1->name)) == 0){
                     ast->type = AST_INT;
-                    Reviser_Variable variable = variable;
+                    Reviser_Variable variable = *variable1;
                     char *text = variable.definition->data.var.value->data.text.value;
                     ast->data.text.value = string_int_to_string(strlen(text));
                 };

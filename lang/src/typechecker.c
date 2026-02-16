@@ -334,12 +334,13 @@ int typeinfo_to_len(AST_TypeInfo type){
         return 0;
     }
     for (int v=0; v<typesLen; v++){
-        if (strcmp(types[v].name, type.type) == 0){
+        if (types[v].name && strcmp(types[v].name, type.type) == 0){
             return types[v].length;
-        };
-    };
+        }
+    }
     return 0;
-};
+}
+
 void typechecker_eat(Typechecker *typechecker, AST *ast);
 void typechecker_access(Typechecker *typechecker, AST *ast){
     if (ast->type == AST_CAST && ast->data.expr.left && ast->data.expr.left->type == AST_INDEX) {

@@ -386,13 +386,28 @@ char* get_argument_register(int n) {
 char *typeinfo_to_string(AST_TypeInfo typeinfo){
     char a[1000];
     int len = 0;
-    strncpy(a, typeinfo.type, strlen(typeinfo.type));
-    len = strlen(typeinfo.type);
-    a[len+1] = '\0';
+    
+    if (typeinfo.type == NULL) {
+        return strdup("");
+    }
+    
+    size_t type_len = strlen(typeinfo.type);
+    if (type_len >= 1000) {
+        error_generate("TypeError", "Type name too long");
+        return strdup("");
+    }
+    
+    strncpy(a, typeinfo.type, type_len);
+    len = type_len;
+    a[len] = '\0';
+    
     for (int v=0; v<typeinfo.ptrnum; v++){
-        strncat(a, "*", 1);
-        len++;
-    };
+        if (len >= 999) {
+            error_generate("TypeError", "Too many pointer indirections");
+            break;
+        }
+        a[len++] = '*';
+    }
     a[len] = '\0';
     return strdup(a);
 }
@@ -1221,6 +1236,100 @@ AST *parser_eat_expr(Parser *parser){
     return ast;
 };
 
+static AST* parse_statement_block(Parser *parser, int *statement_count) {
+    AST *start = NULL;
+    AST *_current = NULL;
+    *statement_count = 0;
+
+    while (parser->tokens[parser->cur].type != TOKEN_RB && 
+           parser->tokens[parser->cur].type != TOKEN_EOF) {
+        AST* new_node = malloc(sizeof(AST));
+        if (!new_node) {
+            error_generate("MemoryError", "Failed to allocate AST node");
+            return start;
+        }
+        
+        AST *result = parser_eat_ast(parser);
+        if (!result) {
+            free(new_node);
+            break;
+        }
+        *new_node = *result;
+        
+        if (start == NULL) {
+            start = new_node;
+            _current = new_node;
+        } else {
+            _current->next = new_node;
+            _current = new_node;
+        }
+        (*statement_count)++;
+    }
+    
+    return start;
+}
+static AST* parse_statement_block_safe(Parser *parser, int *statement_count) {
+    AST *start = NULL;
+    AST *_current = NULL;
+    *statement_count = 0;
+    
+    Token prev = {0};
+    int c = 0;
+    int prev_cur = -1;  // Track cursor position for stall detection
+
+    while (parser->tokens[parser->cur].type != TOKEN_RB && 
+           parser->tokens[parser->cur].type != TOKEN_EOF) {
+        
+        // Detect if cursor hasn't moved (parser stalled)
+        if (parser->cur == prev_cur) {
+            error_generate_parser("SyntaxError", "Parser stuck - no progress", 
+                                  parser->tokens[parser->cur].row, 
+                                  parser->tokens[parser->cur].col, 
+                                  parser->tokens[parser->cur].name);
+            break;
+        }
+        prev_cur = parser->cur;
+        
+        // Infinite loop detection based on token repetition
+        if (parser->tokens[parser->cur].type == prev.type && 
+            strcmp(parser->tokens[parser->cur].value, prev.value) == 0) {
+            if (++c > 10000) {
+                error_generate_parser("SyntaxError", "Infinite loop detected", 
+                                      parser->tokens[parser->cur].row, 
+                                      parser->tokens[parser->cur].col, 
+                                      parser->tokens[parser->cur].name);
+            }
+        } else {
+            c = 0;
+        }
+        
+        AST* new_node = malloc(sizeof(AST));
+        if (!new_node) {
+            error_generate("MemoryError", "Failed to allocate AST node");
+            break;
+        }
+        
+        AST *result = parser_eat_ast(parser);
+        if (!result) {
+            free(new_node);
+            break;
+        }
+        *new_node = *result;
+        
+        if (start == NULL) {
+            start = new_node;
+            _current = new_node;
+        } else {
+            _current->next = new_node;
+            _current = new_node;
+        }
+        (*statement_count)++;
+        prev = parser->tokens[parser->cur];
+    }
+    
+    return start;
+}
+
 AST *parser_eat_ast(Parser *parser){
     int a = parser->cur;
     AST *ast = malloc(sizeof(AST));
@@ -1231,99 +1340,69 @@ AST *parser_eat_ast(Parser *parser){
     if (parser->tokens[parser->cur].type == TOKEN_ID){
         if(strcmp(parser->tokens[parser->cur].value, "if") == 0){
             ast->type = AST_IF;
-            if (parser->cur + 1 >= parser->tokenlen){
-                error_generate_parser("AbruptEnd", "Sudden end to if statement", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
+            
+            if (parser->cur + 1 >= parser->tokenlen) {
+                error_generate_parser("AbruptEnd", "Sudden end to if statement", 
+                                      parser->tokens[parser->cur].row, 
+                                      parser->tokens[parser->cur].col, 
+                                      parser->tokens[parser->cur].name);
             }
             
             parser_peek(parser);
             ast->data.if1.block.condition = parser_eat_expr(parser);
             parser_expect(parser, TOKEN_LB);
 
-            ast->data.if1.block.statements = malloc(sizeof(AST));
+            // Initialize if statement data
+            ast->data.if1.block.statements = NULL;
             ast->data.if1.block.statementlen = 0;
-            ast->data.if1.else1 = malloc(sizeof(AST));
+            ast->data.if1.else1 = NULL;
             ast->data.if1.elseif = malloc(sizeof(Block) * 100);
+            if (!ast->data.if1.elseif) {
+                error_generate("MemoryError", "Failed to allocate elseif blocks");
+                return ast;
+            }
             ast->data.if1.elselen = 0;
             ast->data.if1.elseiflen = 0;
 
-            Token prev = {0};
-            int c = 0;
-
-            AST *start = NULL;
-            AST *_current = NULL;
-            while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                if (parser->tokens[parser->cur].type == prev.type && strcmp(parser->tokens[parser->cur].value, prev.value) == 0){
-                    if (++c > 10000) error_generate_parser("SyntaxError", "Infinite loop detected", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
-                } else {
-                    c = 0;
-                }
-                AST* new_node = malloc(sizeof(AST));
-                *new_node = *(parser_eat_ast(parser));
-                if (start == NULL) {
-                    start = new_node;
-                    _current = new_node;
-                } else {
-                    _current->next = new_node;
-                    _current = new_node;
-                }
-                ast->data.if1.block.statementlen++;
-                prev = parser->tokens[parser->cur];
-            }
-            ast->data.if1.block.statements = start;
+            // Parse main if block
+            ast->data.if1.block.statements = parse_statement_block_safe(parser, 
+                                                                          &ast->data.if1.block.statementlen);
             parser_expect(parser, TOKEN_RB);
 
-            while (parser->cur < parser->tokenlen && strcmp(parser->tokens[parser->cur].value, "else") == 0){
+            // Parse else/else if blocks
+            while (parser->cur < parser->tokenlen && 
+                   strcmp(parser->tokens[parser->cur].value, "else") == 0) {
                 parser_peek(parser);
                 
-                if (strcmp(parser->tokens[parser->cur].value, "if") == 0){
+                if (strcmp(parser->tokens[parser->cur].value, "if") == 0) {
+                    // Handle else if
                     parser_peek(parser);
                     
                     int ei = ast->data.if1.elseiflen;
-                    ast->data.if1.elseif[ei].condition = parser_eat_expr(parser);
-                    ast->data.if1.elseif[ei].statements = malloc(sizeof(AST*) * 100);
-                    ast->data.if1.elseif[ei].statementlen = 0;
-                    
-                    parser_expect(parser, TOKEN_LB);
-
-                    prev = (Token){0};
-                    c = 0;
-                    start = NULL;
-                    _current = NULL;
-                    while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                        AST* new_node = malloc(sizeof(AST));
-                        *new_node = *(parser_eat_ast(parser));
-                        if (start == NULL) {
-                            start = new_node;
-                            _current = new_node;
-                        } else {
-                            _current->next = new_node;
-                            _current = new_node;
-                        }
-                        ast->data.if1.elseif[ei].statementlen++;
+                    if (ei >= 100) {  // Safety check
+                        error_generate_parser("SyntaxError", "Too many else-if blocks (max 100)", 
+                                              parser->tokens[parser->cur].row, 
+                                              parser->tokens[parser->cur].col, 
+                                              parser->tokens[parser->cur].name);
+                        break;
                     }
-                    ast->data.if1.elseif[ei].statements = start;
+                    
+                    ast->data.if1.elseif[ei].condition = parser_eat_expr(parser);
+                    parser_expect(parser, TOKEN_LB);
+                    
+                    ast->data.if1.elseif[ei].statements = parse_statement_block(parser, 
+                                                                                 &ast->data.if1.elseif[ei].statementlen);
                     ast->data.if1.elseiflen++;
                     parser_expect(parser, TOKEN_RB);
+                    
                 } else {
+                    // Handle else
                     parser_expect(parser, TOKEN_LB);
-                    prev = (Token){0};
-                    start = NULL;
-                    _current = NULL;
-                    while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                        AST* new_node = malloc(sizeof(AST));
-                        *new_node = *(parser_eat_ast(parser));
-                        if (start == NULL) {
-                            start = new_node;
-                            _current = new_node;
-                        } else {
-                            _current->next = new_node;
-                            _current = new_node;
-                        }
-                        ast->data.if1.elselen++;
-                    }
-                    ast->data.if1.else1 = start;
+                    
+                    ast->data.if1.else1 = parse_statement_block(parser, &ast->data.if1.elselen);
+                    
                     parser_expect(parser, TOKEN_RB);
-                    break; 
+                    break;  // else is always last
                 }
             }
         }else if(strcmp(parser->tokens[parser->cur].value, "while") == 0){
