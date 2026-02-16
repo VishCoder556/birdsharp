@@ -747,6 +747,12 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         snprintf(string, 100, "struct%s", ast->data.struct1.name);
         types[typesLen++] = (struct Pair){strdup(string), s->size, "structure"};
     }else if(ast->type == AST_ACCESS){
+        typechecker_eat(typechecker, ast->data.expr.left);
+        if (ast->data.expr.left->type == AST_VAR){
+            if (ast->data.expr.left->data.optvar.opt != NULL){
+                ast->data.expr.left->data.optvar.opt->data.assign.alias = false;
+            }
+        }
         typechecker_access(typechecker, ast);
     }
     return;

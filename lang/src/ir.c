@@ -3,7 +3,73 @@
 #include <string.h>
 #include <stdbool.h>
 
-char *IrData = "";
+
+typedef struct {
+    char *data;
+    size_t len;
+    size_t capacity;
+} StringBuilder;
+
+StringBuilder *sb_create(size_t initial_capacity) {
+    StringBuilder *sb = malloc(sizeof(StringBuilder));
+    if (!sb) return NULL;
+    
+    sb->data = malloc(initial_capacity);
+    if (!sb->data) {
+        free(sb);
+        return NULL;
+    }
+    
+    sb->data[0] = '\0';
+    sb->len = 0;
+    sb->capacity = initial_capacity;
+    return sb;
+}
+
+void sb_append(StringBuilder *sb, const char *str) {
+    if (!sb || !str) return;
+    
+    size_t str_len = strlen(str);
+    
+    // Grow if needed (double capacity)
+    while (sb->len + str_len + 1 > sb->capacity) {
+        sb->capacity *= 2;
+        char *new_data = realloc(sb->data, sb->capacity);
+        if (!new_data) {
+            fprintf(stderr, "StringBuilder: Out of memory!\n");
+            exit(1);
+        }
+        sb->data = new_data;
+    }
+    
+    memcpy(sb->data + sb->len, str, str_len);
+    sb->len += str_len;
+    sb->data[sb->len] = '\0';
+}
+
+void sb_append_char(StringBuilder *sb, char c) {
+    char str[2] = {c, '\0'};
+    sb_append(sb, str);
+}
+
+char *sb_get(StringBuilder *sb) {
+    return sb->data;
+}
+
+void sb_free(StringBuilder *sb) {
+    if (sb) {
+        free(sb->data);
+        free(sb);
+    }
+}
+
+void sb_clear(StringBuilder *sb) {
+    if (sb) {
+        sb->len = 0;
+        sb->data[0] = '\0';
+    }
+}
+StringBuilder *IrData = NULL;
 int tempN = 0;
 
 typedef struct {
@@ -63,8 +129,7 @@ void IRRegs_clear(){
 }
 
 void ir_init(void *generator){
-    IrData = malloc(5000);
-    strncpy(IrData, "", 100);
+    IrData = sb_create(8192);
     Generator *gen = (Generator*)generator;
     strcat(gen->output->filename, ".ir");
     for (int i=0; i<14; i++){
@@ -311,20 +376,20 @@ char *ir_generate_expr(void *generator, AST ast){
         snprintf(string, 100, "%d", tempN++);
         generator_write_text(generator, strdup(string));
         generator_write_text(generator, "\n");
-        strcat(IrData, "%i8 temp_");
-        strcat(IrData, strdup(string));
-        strcat(IrData, " = \"");
+        sb_append(IrData, "%i8 temp_");
+        sb_append(IrData, strdup(string));
+        sb_append(IrData, " = \"");
         for (int i=0; i<strlen(ast.data.arg.value); i++){
             if (ast.data.arg.value[i] == '\n'){
-                strcat(IrData, "\\n");
+                sb_append(IrData, "\\n");
             }else {
                 char str[2];
                 str[0] = ast.data.arg.value[i];
                 str[1] = '\0';
-                strcat(IrData, strdup(str));
+                sb_append(IrData, strdup(str));
             };
         }
-        strcat(IrData, "\"\n");
+        sb_append(IrData, "\"\n");
         return reg;
     }else if(ast.type == AST_FUNCALL){
         for (int i=ast.data.funcall.argslen; i > 0; i--){
@@ -699,13 +764,13 @@ void ir_generate_ast(void *generator, AST ast){
         };
         generator_write_text(generator, "}\n");
     }else if (ast.type == AST_ASSIGN){
-        strcat(IrData, "%");
-        strcat(IrData, len_to_selector(typeinfo_to_len(ast.typeinfo)));
-        strcat(IrData, " ");
-        strcat(IrData, ast.data.assign.from->data.arg.value); // Typechecker made sure it's AST_VAR
-        strcat(IrData, " = ");
-        strcat(IrData, ir_generate_expr(generator, *ast.data.assign.assignto));
-        strcat(IrData, "\n");
+        sb_append(IrData, "%");
+        sb_append(IrData, len_to_selector(typeinfo_to_len(ast.typeinfo)));
+        sb_append(IrData, " ");
+        sb_append(IrData, ast.data.assign.from->data.arg.value); // Typechecker made sure it's AST_VAR
+        sb_append(IrData, " = ");
+        sb_append(IrData, ir_generate_expr(generator, *ast.data.assign.assignto));
+        sb_append(IrData, "\n");
     }else if(ast.type == AST_MODE){
 
     }else if(ast.type == AST_STRUCT){
@@ -718,6 +783,6 @@ void ir_generate_ast(void *generator, AST ast){
 };
 
 void ir_close(void *generator){
-    generator_write_text(generator, IrData);
+    generator_write_text(generator, sb_get(IrData));
     generator_close(generator);
 };

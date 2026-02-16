@@ -1,4 +1,4 @@
-// #!optimize speed
+#!optimize speed
 #!include "std.bsh"
 
 struct A {
