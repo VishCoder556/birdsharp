@@ -43,10 +43,8 @@ void preprocess(char *main_file, Tokenizer *tokenizer){
                     tokenizer->tokens[i + v] = tokenizer2->tokens[v];
                 }
 
-                tokenizer->tokenlen += tokenizer2->tokenlen - 4;;
-                free(tokenizer2->code);
-                free(tokenizer2->tokens);
-                free(tokenizer2);
+                tokenizer->tokenlen += tokenizer2->tokenlen - 4;
+                tokenizer_free(tokenizer2);
             };
         }
     };

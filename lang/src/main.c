@@ -682,7 +682,11 @@ char tokenizer_token(Tokenizer *tokenizer){
     tokenizer->col++;
     return 0;
 };
-
+void tokenizer_free(Tokenizer *tok) {
+    free(tok->code);
+    free(tok->tokens);
+    free(tok);
+}
 void rem_idx(Token arr[], int *len, int index) {
     if (index < 0 || index >= *len) {
         printf("Invalid index\n");
@@ -1625,7 +1629,8 @@ int main(int argc, char **argv){
     Typechecker *typechecker = typechecker_init(parser);
     while (typechecker_eat_ast(typechecker) != -1){
     };
-
+    typechecker_close(typechecker);
+    
     clock_gettime(CLOCK_MONOTONIC, &__end);
     fprintf(stdout, "[INFO] Typechecking process took %.4f milliseconds\n", (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6);
 
@@ -1637,9 +1642,7 @@ int main(int argc, char **argv){
     fprintf(stdout, "[INFO] Transpiling process took %.4f milliseconds\n", (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6);
 
 
-    free(tokenizer->code);
-    free(tokenizer->tokens);
-    free(tokenizer);
+    tokenizer_free(tokenizer);
     free(generator);
     AST *current = parser->asts;
     while (current != NULL) {

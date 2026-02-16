@@ -783,3 +783,9 @@ int typechecker_eat_ast(Typechecker *typechecker){
     typechecker->cur++;
     return 0;
 };
+
+void typechecker_close(Typechecker *typechecker){
+    free(current_mode);
+    free(current_scope);
+    free(global_scope);
+};

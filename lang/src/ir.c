@@ -191,8 +191,6 @@ void ir_free_smart(char *s) {
     } else if (is_r(s)) {
         ir_free_reg(s);
     }
-
-    free(s); 
 }
 #define free_temp(s) ir_free_smart(s)
 
@@ -302,7 +300,7 @@ char *move_imm(void *generator, char *str, char *reg, AST_TypeInfo typeinfo){
     generator_write_text(generator, " = ");
     generator_write_text(generator, newstr);
     generator_write_text(generator, "\n");
-    free_temp(strdup(str));
+    free_temp(str);
     return strdup(newreg);
 };
 
@@ -339,8 +337,8 @@ char *move(void *generator, AST ast, char *reg){
     generator_write_text(generator, ", "); \
     generator_write_text(generator, right_ptr); \
     generator_write_text(generator, "\n"); \
-    free_temp(strdup(reg1)); \
-    free_temp(strdup(reg2)); \
+    free_temp(reg1); \
+    free_temp(reg2); \
     return reg1;
 
 
@@ -390,7 +388,7 @@ char *ir_generate_expr(void *generator, AST ast){
             ir_allocate_reg(strdup(string));
             int idx = i == 0 ? 0 : i-1;
             move(generator, *ast.data.funcall.args[idx], strdup(string));
-            free_temp(strdup(string));
+            free_temp(string);
         };
         generator_write_text(generator, "\tcall ");
         generator_write_text(generator, ast.data.funcall.name);
@@ -398,7 +396,7 @@ char *ir_generate_expr(void *generator, AST ast){
         return "v0";
     }else if(ast.type == AST_CAST){
         char *inner = ir_generate_expr(generator, *ast.data.expr.left);
-        free_temp(strdup(inner));
+        free_temp(inner);
         // Generate a move that respects the cast target type
         char string[100];
         snprintf(string, 100, "%s", r_based_on_size(inner, typeinfo_to_len(ast.typeinfo)));
@@ -426,7 +424,7 @@ char *ir_generate_expr(void *generator, AST ast){
             snprintf(string, 100, "a%d", i-1);
             ir_allocate_reg(strdup(string));
             move(generator, *ast.data.funcall.args[i-1], strdup(string));
-            free_temp(strdup(string));
+            free_temp(string);
         };
         int syscallLen = strlen("syscall");
         if (strncmp(ast.data.funcall.name, "syscall", syscallLen) == 0){
@@ -450,8 +448,8 @@ char *ir_generate_expr(void *generator, AST ast){
         }
         char string[100];
         snprintf(string, 100, "%s != %s", lhs, rhs);
-        free_temp(strdup(lhs));
-        free_temp(strdup(rhs));
+        free_temp(lhs);
+        free_temp(rhs);
         return strdup(string);
     }else if(ast.type == AST_EQ){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
@@ -467,8 +465,8 @@ char *ir_generate_expr(void *generator, AST ast){
         }
         char string[100];
         snprintf(string, 100, "%s == %s", lhs, rhs);
-        free_temp(strdup(lhs));
-        free_temp(strdup(rhs));
+        free_temp(lhs);
+        free_temp(rhs);
         return strdup(string);
     }else if(ast.type == AST_GT){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
@@ -484,8 +482,8 @@ char *ir_generate_expr(void *generator, AST ast){
         }
         char string[100];
         snprintf(string, 100, "%s < %s", lhs, rhs);
-        free_temp(strdup(lhs));
-        free_temp(strdup(rhs));
+        free_temp(lhs);
+        free_temp(rhs);
         return strdup(string);
     }else if(ast.type == AST_GTE){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
@@ -501,8 +499,8 @@ char *ir_generate_expr(void *generator, AST ast){
         }
         char string[100];
         snprintf(string, 100, "%s <= %s", lhs, rhs);
-        free_temp(strdup(lhs));
-        free_temp(strdup(rhs));
+        free_temp(lhs);
+        free_temp(rhs);
         return strdup(string);
     }else if(ast.type == AST_LT){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
@@ -518,8 +516,8 @@ char *ir_generate_expr(void *generator, AST ast){
         }
         char string[100];
         snprintf(string, 100, "%s > %s", lhs, rhs);
-        free_temp(strdup(lhs));
-        free_temp(strdup(rhs));
+        free_temp(lhs);
+        free_temp(rhs);
         return strdup(string);
     }else if(ast.type == AST_LTE){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
@@ -535,8 +533,8 @@ char *ir_generate_expr(void *generator, AST ast){
         }
         char string[100];
         snprintf(string, 100, "%s >= %s", lhs, rhs);
-        free_temp(strdup(lhs));
-        free_temp(strdup(rhs));
+        free_temp(lhs);
+        free_temp(rhs);
         return strdup(string);
     }else if(ast.type == AST_MODULO){
         bin_op("mod");
@@ -560,7 +558,7 @@ char *ir_generate_expr(void *generator, AST ast){
         generator_write_text(generator, ", ");
         generator_write_text(generator, r);
         generator_write_text(generator, "\n");
-        free_temp(strdup(reg2));
+        free_temp(reg2);
         char string[100];
         snprintf(string, 100, "%s [%s]", len_to_selector(len), reg1);
         return strdup(string);
@@ -571,7 +569,7 @@ char *ir_generate_expr(void *generator, AST ast){
         int typeinfo = typeinfo_to_len(ast.typeinfo);
         snprintf(string, 100, "%s [%s]", len_to_selector(typeinfo), address_reg);
         char *r = move_imm(generator, strdup(string), r_based_on_size(val_reg, typeinfo), ast.typeinfo);
-        free_temp(strdup(address_reg));
+        free_temp(address_reg);
         return r;
     }else if(ast.type == AST_MODE){
         ;
@@ -612,7 +610,7 @@ char *ir_generate_lhs(void *generator, AST ast){
         generator_write_text(generator, ", ");
         generator_write_text(generator, reg2);
         generator_write_text(generator, "\n");
-        free_temp(strdup(reg2));
+        free_temp(reg2);
         return reg1;
     };
     return "";
@@ -670,8 +668,8 @@ void ir_generate_stmnt(void *generator, AST ast){
             if (sized_rhs != rhs) {
                 free(sized_rhs);
             }
-            free_temp(strdup(rhs));
-            free_temp(strdup(var));
+            free_temp(rhs);
+            free_temp(var);
         } else {
             snprintf(string, 100, "%s [%s]", len_to_selector(typeinfo), var);
             move(generator, *(ast.data.assign.assignto), strdup(string));
@@ -743,7 +741,7 @@ void ir_generate_stmnt(void *generator, AST ast){
         generator_write_text(generator, end_lbl);
         generator_write_text(generator, " {\n}\n");
 
-        free_temp(strdup(reg));
+        free_temp(reg);
     }else if(ast.type == AST_WHILE){
         char string[100];
         snprintf(string, 100, "_LBC%d", lblN++);
@@ -757,7 +755,7 @@ void ir_generate_stmnt(void *generator, AST ast){
         generator_write_text(generator, " ifnot ");
         generator_write_text(generator, r);
         generator_write_text(generator, "\n");
-        free_temp(strdup(r));
+        free_temp(r);
         for (int i=0; i<ast.data.while1.blocklen; i++){
             ir_generate_stmnt(generator, *(ast.data.while1.block[i]));
         };
@@ -765,10 +763,10 @@ void ir_generate_stmnt(void *generator, AST ast){
         generator_write_text(generator, strdup(string));
         generator_write_text(generator, "\n");
         generator_write_text(generator, "}\n");
-        free_temp(strdup(reg));
+        free_temp(reg);
     }else {
         char *res = ir_generate_expr(generator, ast);
-        free_temp(strdup(res));
+        free_temp(res);
     };
 };
 
