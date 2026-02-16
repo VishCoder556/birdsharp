@@ -27,6 +27,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <wchar.h>
+#include <unistd.h>
 #include <time.h>
 
 char *HELP = 

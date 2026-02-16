@@ -221,68 +221,60 @@ int typeinfo_from_reg(char *reg) {
 }
 
 
-char *r_based_on_size(char *reg, int type){
-    if (!reg) return reg;
-    
-    int orig_len = strlen(reg);
-    bool is_memory_access = false;
+char *r_based_on_size(char *reg, int type) {
+    if (!reg || reg[0] == '\0') return reg;
+
+    char out[128] = {0};
+    char *size_selector = len_to_selector(type);
     char *base_reg = reg;
-    
-    if (strncmp(reg, "i32", 3) == 0){
+    bool is_memory_access = false;
+
+    if (strncmp(reg, "i32", 3) == 0) {
         is_memory_access = true;
-        base_reg = reg + 5;
-        while (*base_reg == ' ' || *base_reg == '[') base_reg++;
-    }else if (strncmp(reg, "i16", 3) == 0){
+        base_reg = reg + 3; 
+    } else if (strncmp(reg, "i16", 3) == 0) {
         is_memory_access = true;
-        base_reg = reg + 4;
-        while (*base_reg == ' ' || *base_reg == '[') base_reg++;
-    }else if (strncmp(reg, "i8", 2) == 0){
+        base_reg = reg + 3;
+    } else if (strncmp(reg, "i8", 2) == 0) {
         is_memory_access = true;
-        base_reg = reg + 4;
-        while (*base_reg == ' ' || *base_reg == '[') base_reg++;
-    }else if (strncmp(reg, "i64", 3) == 0){
+        base_reg = reg + 2;
+    } else if (strncmp(reg, "i64", 3) == 0) {
         is_memory_access = true;
-        base_reg = reg + 5;
-        while (*base_reg == ' ' || *base_reg == '[') base_reg++;
+        base_reg = reg + 3;
     }
-    
+
     if (is_memory_access) {
-        char out[100];
-        char *size_selector = len_to_selector(type);
+        while (*base_reg == ' ' || *base_reg == '[') base_reg++;
         
-        // Find the register name within brackets
         char *bracket_end = strchr(base_reg, ']');
         if (bracket_end) {
-            int reg_name_len = bracket_end - base_reg;
+            int reg_name_len = (int)(bracket_end - base_reg);
             snprintf(out, sizeof(out), "%s [%.*s]", size_selector, reg_name_len, base_reg);
         } else {
             snprintf(out, sizeof(out), "%s [%s]", size_selector, base_reg);
         }
         return strdup(out);
     }
-    
-    if ((reg[0] == 'a' || reg[0] == 't' || reg[0] == 's' || reg[0] == 'v')) {
-        char out[20];
-        strcpy(out, reg);
-        
-        if (strchr(reg, ':') == NULL) {
-            if (type == 8) {
-                return strdup(out);
-            } else if (type == 4) {
-                strcat(out, ":i32");
-            } else if (type == 2) {
-                strcat(out, ":i16");
-            } else if (type == 1) {
-                strcat(out, ":i8");
-            }
-        }
-        
-        return strdup(out);
-    }
-    
-    return reg;
-}
 
+    if (reg[0] == 'a' || reg[0] == 't' || reg[0] == 's' || reg[0] == 'v') {
+        char clean_reg[32] = {0};
+        char *colon = strchr(reg, ':');
+        int name_len = colon ? (int)(colon - reg) : (int)strlen(reg);
+        
+        if (name_len > 31) name_len = 31;
+        memcpy(clean_reg, reg, name_len);
+
+        if (type == 8) {
+            return strdup(clean_reg); 
+        } else {
+            snprintf(out, sizeof(out), "%s:i%d", clean_reg, type * 8);
+            return strdup(out);
+        }
+    }
+
+    // 4. Final Fallback
+    return strdup(reg);
+}
 char *move_imm(void *generator, char *str, char *reg, AST_TypeInfo typeinfo){
     if (strcmp(str, reg) == 0) {
         return "";
@@ -447,6 +439,15 @@ char *ir_generate_expr(void *generator, AST ast){
     }else if(ast.type == AST_NEQ){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
+        int lhslen = typeinfo_to_len(ast.data.expr.left->typeinfo);
+        int rhslen = typeinfo_to_len(ast.data.expr.right->typeinfo);
+        rhs = r_based_on_size(rhs, rhslen);
+        lhs = r_based_on_size(lhs, lhslen);
+        if (lhslen > rhslen){
+            rhs = r_based_on_size(rhs, lhslen);
+        }else {
+            lhs = r_based_on_size(lhs, rhslen);
+        }
         char string[100];
         snprintf(string, 100, "%s != %s", lhs, rhs);
         free_temp(strdup(lhs));
@@ -455,6 +456,15 @@ char *ir_generate_expr(void *generator, AST ast){
     }else if(ast.type == AST_EQ){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
+        int lhslen = typeinfo_to_len(ast.data.expr.left->typeinfo);
+        int rhslen = typeinfo_to_len(ast.data.expr.right->typeinfo);
+        rhs = r_based_on_size(rhs, rhslen);
+        lhs = r_based_on_size(lhs, lhslen);
+        if (lhslen > rhslen){
+            rhs = r_based_on_size(rhs, lhslen);
+        }else {
+            lhs = r_based_on_size(lhs, rhslen);
+        }
         char string[100];
         snprintf(string, 100, "%s == %s", lhs, rhs);
         free_temp(strdup(lhs));
@@ -474,13 +484,21 @@ char *ir_generate_expr(void *generator, AST ast){
         }
         char string[100];
         snprintf(string, 100, "%s < %s", lhs, rhs);
-        // printf("{%d, %d, %s}\n", lhslen, rhslen, strdup(string));
         free_temp(strdup(lhs));
         free_temp(strdup(rhs));
         return strdup(string);
     }else if(ast.type == AST_GTE){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
+        int lhslen = typeinfo_to_len(ast.data.expr.left->typeinfo);
+        int rhslen = typeinfo_to_len(ast.data.expr.right->typeinfo);
+        rhs = r_based_on_size(rhs, rhslen);
+        lhs = r_based_on_size(lhs, lhslen);
+        if (lhslen > rhslen){
+            rhs = r_based_on_size(rhs, lhslen);
+        }else {
+            lhs = r_based_on_size(lhs, rhslen);
+        }
         char string[100];
         snprintf(string, 100, "%s <= %s", lhs, rhs);
         free_temp(strdup(lhs));
@@ -489,6 +507,15 @@ char *ir_generate_expr(void *generator, AST ast){
     }else if(ast.type == AST_LT){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
+        int lhslen = typeinfo_to_len(ast.data.expr.left->typeinfo);
+        int rhslen = typeinfo_to_len(ast.data.expr.right->typeinfo);
+        rhs = r_based_on_size(rhs, rhslen);
+        lhs = r_based_on_size(lhs, lhslen);
+        if (lhslen > rhslen){
+            rhs = r_based_on_size(rhs, lhslen);
+        }else {
+            lhs = r_based_on_size(lhs, rhslen);
+        }
         char string[100];
         snprintf(string, 100, "%s > %s", lhs, rhs);
         free_temp(strdup(lhs));
@@ -497,6 +524,15 @@ char *ir_generate_expr(void *generator, AST ast){
     }else if(ast.type == AST_LTE){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
+        int lhslen = typeinfo_to_len(ast.data.expr.left->typeinfo);
+        int rhslen = typeinfo_to_len(ast.data.expr.right->typeinfo);
+        rhs = r_based_on_size(rhs, rhslen);
+        lhs = r_based_on_size(lhs, lhslen);
+        if (lhslen > rhslen){
+            rhs = r_based_on_size(rhs, lhslen);
+        }else {
+            lhs = r_based_on_size(lhs, rhslen);
+        }
         char string[100];
         snprintf(string, 100, "%s >= %s", lhs, rhs);
         free_temp(strdup(lhs));
@@ -782,7 +818,42 @@ void ir_generate_ast(void *generator, AST ast){
     };
 };
 
+char* find_available_tmp_file(char *ext) {
+    static char filename[256];
+    int i = 0;
+
+    while (true) {
+        snprintf(filename, sizeof(filename), "tmp_%d.%s", i, ext);
+
+        if (access(filename, F_OK) != 0) {
+            return strdup(filename);
+        }
+
+        i++;
+        
+        if (i > 1000) return NULL; 
+    }
+}
+
 void ir_close(void *generator){
+    Generator *gen = (Generator*)generator;
+
     generator_write_text(generator, sb_get(IrData));
     generator_close(generator);
+    char ir_file[512];
+    snprintf(ir_file, sizeof(ir_file), "%s", gen->output->filename);
+
+    char final_output[512];
+    strncpy(final_output, gen->output->filename, sizeof(final_output) - 1);
+    final_output[sizeof(final_output) - 1] = '\0';
+
+    char *dot = strrchr(final_output, '.');
+    if (dot != NULL) {
+        *dot = '\0';
+    }
+
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd), "irc %s -o %s", ir_file, final_output);
+
+    int result = system(cmd);
 };

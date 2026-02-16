@@ -1,4 +1,4 @@
-#!include "std.bsh"
+#!include "../../code/std.bsh"
 
 
 int fibonacci(int n) {
