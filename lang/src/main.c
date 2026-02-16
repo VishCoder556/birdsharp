@@ -1708,7 +1708,6 @@ int main(int argc, char **argv){
     Typechecker *typechecker = typechecker_init(parser);
     while (typechecker_eat_ast(typechecker) != -1){
     };
-    typechecker_close(typechecker);
     
     clock_gettime(CLOCK_MONOTONIC, &__end);
     fprintf(stdout, "[INFO] Typechecking process took %.4f milliseconds\n", (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6);
@@ -1729,8 +1728,8 @@ int main(int argc, char **argv){
         free(current);
         current = next;
     }
+    typechecker_close(typechecker);
     free(parser);
-    free(typechecker);
     fprintf(stdout, "[INFO] Program took %.4f milliseconds\n", (__end.tv_sec - __begin.tv_sec) * 1000.0 +
                         (__end.tv_nsec - __begin.tv_nsec) / 1e6);
     

@@ -180,13 +180,14 @@ Typechecker *typechecker_init(Parser *parser){
     typechecker->name = parser->name;
     typechecker->cur = 0;
     typechecker->functions = malloc(sizeof(TC_Func) * 100);
-    typechecker->functions[0].name = "print";
-    typechecker->functions[0].ret = (AST_TypeInfo){.ptrnum=0, .type="int"};
-    typechecker->functions[0].args = malloc(sizeof(AST_TypeInfo) * 100);
-    typechecker->functions[0].args[0] = (AST_TypeInfo){.ptrnum=1, .type="char"};
-    typechecker->functions[0].arglen = 1;
-    typechecker->functions[0].scope = initialize_scope();
-    typechecker->functionlen = 1;
+    for (int i = 0; i < 100; i++) {
+        typechecker->functions[i].name = NULL;
+        typechecker->functions[i].args = NULL;
+        typechecker->functions[i].arglen = 0;
+        typechecker->functions[i].scope.variables = NULL;
+        typechecker->functions[i].scope.variablelen = 0;
+    }
+    typechecker->functionlen = 0;
     TC_Scope scope = initialize_scope();
     global_scope = malloc(sizeof(TC_Scope));
     *global_scope = scope;
@@ -786,7 +787,35 @@ int typechecker_eat_ast(Typechecker *typechecker){
 };
 
 void typechecker_close(Typechecker *typechecker){
-    free(current_mode);
-    free(current_scope);
-    free(global_scope);
-};
+    if (!typechecker) return;
+    
+    if (typechecker->functions) {
+        for (int i = 0; i < typechecker->functionlen; i++) {
+            if (typechecker->functions[i].args) {
+                free(typechecker->functions[i].args);
+            }
+            if (typechecker->functions[i].scope.variables) {
+                free(typechecker->functions[i].scope.variables);
+            }
+        }
+        free(typechecker->functions);
+    }
+    
+    if (current_mode) {
+        free(current_mode);
+        current_mode = NULL;
+    }
+    
+    if (global_scope) {
+        if (global_scope->variables) {
+            free(global_scope->variables);
+        }
+        free(global_scope);
+        global_scope = NULL;
+    }
+    
+    current_scope = NULL;
+    
+    free(typechecker);
+}
+}
