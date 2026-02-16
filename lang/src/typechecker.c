@@ -342,8 +342,6 @@ int typeinfo_to_len(AST_TypeInfo type){
 };
 void typechecker_eat(Typechecker *typechecker, AST *ast);
 void typechecker_access(Typechecker *typechecker, AST *ast){
-    
-    // 1. Prevent infinite recursion
     if (ast->type == AST_CAST && ast->data.expr.left && ast->data.expr.left->type == AST_INDEX) {
         return; 
     }
@@ -369,23 +367,19 @@ void typechecker_access(Typechecker *typechecker, AST *ast){
     snprintf(off_str, 10, "%d", field.offset);
     off_node->data.arg.value = strdup(off_str);
 
-    // Plus Node: (char*)base + offset
     AST *plus_node = NEW_NODE();
     plus_node->type = AST_PLUS;
     plus_node->typeinfo = (AST_TypeInfo){"char", 1};
     plus_node->data.expr.left = cast_ptr;
     plus_node->data.expr.right = off_node;
-
-    // Index Node: [0]
     AST *index_node = NEW_NODE();
     index_node->type = AST_INDEX;
-    index_node->typeinfo = field.type; // The actual type of the member
+    index_node->typeinfo = field.type;
     index_node->data.expr.left = plus_node;
     index_node->data.expr.right = NEW_NODE();
     index_node->data.expr.right->type = AST_INT;
     index_node->data.expr.right->data.arg.value = strdup("0");
 
-    // Rewrite the original node
     ast->type = AST_CAST;
     ast->typeinfo = field.type;
     ast->data.expr.left = index_node;
