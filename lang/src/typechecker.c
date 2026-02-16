@@ -818,4 +818,3 @@ void typechecker_close(Typechecker *typechecker){
     
     free(typechecker);
 }
-}

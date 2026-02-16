@@ -29,7 +29,10 @@ Generator *_generator_init(Typechecker *typechecker, char *file, Generator_Funct
     generator->astlen = typechecker->astlen;
     generator->functions = functions;
     generator->output = malloc(sizeof(Generator_Output));
-    strcpy(generator->output->filename, file);
+    size_t filename_capacity = sizeof(generator->output->filename);
+
+    strncpy(generator->output->filename, file, filename_capacity - 1);
+    generator->output->filename[filename_capacity - 1] = '\0';
     generator->functions.init(generator);
     return generator;
 };

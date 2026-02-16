@@ -617,7 +617,11 @@ char tokenizer_token(Tokenizer *tokenizer){
             error_generate_parser("SyntaxError", "Abrupt end", tokenizer->line, prevCol, tokenizer->name);
         };
         string[stringlen++] = '\0';
-        tokenizer->tokens[tokenizer->tokenlen].type = TOKEN_STRING;strcpy(tokenizer->tokens[tokenizer->tokenlen].value, string);
+        tokenizer->tokens[tokenizer->tokenlen].type = TOKEN_STRING;
+        size_t dest_size = sizeof(tokenizer->tokens[tokenizer->tokenlen].value);
+
+        strncpy(tokenizer->tokens[tokenizer->tokenlen].value, string, dest_size - 1);
+        tokenizer->tokens[tokenizer->tokenlen].value[dest_size - 1] = '\0';
         tokenizer->tokens[tokenizer->tokenlen].row = tokenizer->line;
         tokenizer->tokens[tokenizer->tokenlen].col = tokenizer->col;
         tokenizer->tokens[tokenizer->tokenlen].name = tokenizer->name;
@@ -1415,12 +1419,12 @@ AST *parser_eat_ast(Parser *parser){
                 ast->data.while1.condition = parser_eat_expr(parser);
                 parser_expect(parser, TOKEN_LB);
                 Token prev;
-                char c = 0;
+                int c = 0;
                 ast->data.while1.blocklen = 0;
                 while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
                     if (parser->tokens[parser->cur].type == prev.type && strcmp(parser->tokens[parser->cur].value, prev.value) == 0){
                         c++;
-                        if (c > 5){
+                        if (c > 1000){
                             error_generate_parser("SyntaxError", "Something went wrong in while", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
                         }
                     }else {
