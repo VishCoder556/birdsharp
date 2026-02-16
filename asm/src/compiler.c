@@ -113,16 +113,16 @@ Compiler *compiler_init(Reviser *reviser, char *file){
 void compiler_close(Compiler *compiler){
     fprintf(compiler->f, "section .data\n%s\n", compiler->data);
     fclose(compiler->f);
-    char string[100];
+    char string[200];
     compiler->_o = find_available_tmp_file("o");
     // snprintf(string, 100, "bat %s", compiler->_asm);
     // system(string);
     // snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
     // system(string);
-    snprintf(string, 100, "yasm -f macho64 %s -o %s", compiler->_asm, compiler->_o);
+    snprintf(string, 200, "yasm -f macho64 %s -o %s", compiler->_asm, compiler->_o);
     system(string);
     remove(compiler->_asm);
-    snprintf(string, 100, "clang -arch x86_64 %s -o %s -e main -Wl,-w -Wl,-platform_version,macos,11.0,11.0", compiler->_o, compiler->name);
+    snprintf(string, 200, "clang -arch x86_64 %s -o %s -e main -Wl,-w -Wl,-platform_version,macos,11.0,11.0", compiler->_o, compiler->name);
     system(string);
     remove(compiler->_o);
 }

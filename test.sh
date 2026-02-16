@@ -14,6 +14,7 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 
 echo -n "Test 1: Basic compilation (code/main.bsh)... "
+echo
 bs code/main.bsh -o tmp/test_main 2>/dev/null
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ PASS${NC}"
@@ -24,6 +25,7 @@ else
 fi
 
 echo -n "Test 2: IR generation... "
+echo
 if [ -f tmp/test_main.ir ]; then
     if grep -q "%func" tmp/test_main.ir; then
         echo -e "${GREEN}✓ PASS${NC}"
@@ -45,7 +47,8 @@ TEST_NUM=3
 for example in lang/examples/*.bsh; do
     if [ -f "$example" ]; then
         filename=$(basename "$example" .bsh)
-        echo -n "Test $TEST_NUM: $filename... "
+        echo -n "Test $TEST_NUM: $filename..."
+        echo
         
         # Compile the example
         bs "$example" -o "tmp/test_$filename" 2>/dev/null

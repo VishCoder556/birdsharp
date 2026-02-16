@@ -1,0 +1,16 @@
+#!include "../../code/std.bsh"
+
+struct A {
+    long x
+    long y
+}
+
+
+
+int main(long argc, char **argv) {
+    struct A string = cast(struct A, 0)
+    string.x = 10
+    string.y = 20
+    exit(cast(int, string.x + string.y))
+    return 0;
+}

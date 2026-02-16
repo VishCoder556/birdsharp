@@ -264,7 +264,9 @@ char *r_based_on_size(char *reg, int type) {
 
         if (type == 8) {
             return strdup(clean_reg); 
-        } else {
+        }else if(type > 8){
+            return strdup(clean_reg);  // Use ptr
+        }else {
             snprintf(out, sizeof(out), "%s:i%d", clean_reg, type * 8);
             return strdup(out);
         }
@@ -411,11 +413,13 @@ char *ir_generate_expr(void *generator, AST ast){
             }
         }
         char string[100];
-        if (ast.typeinfo.type != NULL && strncmp(ast.typeinfo.type, "struct", 6) == 0){
-            // Return just the variable name (which is an address for locals)
+        
+        if (ast.typeinfo.kind == KIND_ARRAY || 
+            (ast.typeinfo.type != NULL && strncmp(ast.typeinfo.type, "struct", 6) == 0)){
             snprintf(string, 100, "&%s", ast.data.arg.value);
             return strdup(string);
         }
+        
         snprintf(string, 100, "%s [%s]", len_to_selector(typeinfo_to_len(ast.typeinfo)), ast.data.arg.value);
         return strdup(string);
     }else if(ast.type == AST_SYSCALL){

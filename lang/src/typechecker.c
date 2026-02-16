@@ -201,19 +201,24 @@ int externlen = 0;
 
 
 bool are_equal(AST_TypeInfo *left, AST_TypeInfo *right){
-    char *l = typeinfo_to_string(*left);
-    char *r = typeinfo_to_string(*right);
-    if (strcmp(l, r)) {
-        if (strcmp(l, "const") == 0){
-            *left = *right;
-        }else if (strcmp(r, "const") == 0){
-            *right = *left;
-        }else {
-            return false;
-        }
-    };
+    if (left->kind == KIND_CONST) {
+        *left = *right;
+        return true;
+    }
+    if (right->kind == KIND_CONST) {
+        *right = *left;
+        return true;
+    }
+    
+    if (left->kind != right->kind) return false;
+    if (left->ptrnum != right->ptrnum) return false;
+    
+    if (left->kind == KIND_STRUCT) {
+        return strcmp(left->type, right->type) == 0;
+    }
+    
     return true;
-};
+}
 
 
 void typechecker_eat(Typechecker *typechecker, AST *ast);
@@ -233,11 +238,13 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
                 a = 1;
             };
         };
+
         for (int i=0; i<externlen; i++){
             if (strcmp(externs[i], ast.data.funcall.name) == 0){
-                return (AST_TypeInfo){"int", 0};
+                return (AST_TypeInfo){.type = "", .kind = KIND_I32, .ptrnum = 0};
             };
         }
+
 
         if (a == 0){
             char string[100];
@@ -276,7 +283,7 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
             }
         };
         if (ast.type == AST_GT || ast.type == AST_GTE || ast.type == AST_LT || ast.type == AST_LTE || ast.type == AST_EQ || ast.type == AST_NEQ){
-            ast.typeinfo = (AST_TypeInfo){"bool", 0};
+            ast.typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
             return ast.typeinfo;
         };
         ast.typeinfo = left;
@@ -298,49 +305,79 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
         TC_Field field = find_field(struct1, ast.data.expr.right->data.arg.value);
         return field.type;
     }else if(ast.type == AST_IF || ast.type == AST_WHILE){
-        return (AST_TypeInfo){"bool", 0};
+        return (AST_TypeInfo){"bool", KIND_BOOL, 0};
     }else if(ast.type == AST_NOT){
-        return (AST_TypeInfo){"bool", 0};
+        return (AST_TypeInfo){"bool", KIND_BOOL, 0};
     }else if(ast.type == AST_AND){
-        return (AST_TypeInfo){"bool", 0};
+        return (AST_TypeInfo){"bool", KIND_BOOL, 0};
     }else if(ast.type == AST_OR){
-        return (AST_TypeInfo){"bool", 0};
+        return (AST_TypeInfo){"bool", KIND_BOOL, 0};
     }else if(ast.type == AST_SYSCALL){
-        return (AST_TypeInfo){"int", 0};
+        return (AST_TypeInfo){"int", KIND_I32, 0};
     }else if(ast.type == AST_INDEX){
         typechecker_eat(typechecker, ast.data.expr.left);
         typechecker_eat(typechecker, ast.data.expr.right);
         AST_TypeInfo typeinfo = fetch_type(typechecker, ast.data.expr.left);
-        if (typeinfo.ptrnum == 0){
+        if (typeinfo.ptrnum == 0 && typeinfo.kind != KIND_ARRAY){
             error_generate_parser("ArraySubscriptError", "Cannot get array susbscript of something that's not an array / pointer", ast.row, ast.col, ast.filename);
         };
         typeinfo.ptrnum--;
+        if (typeinfo.kind == KIND_ARRAY){
+            typeinfo = *typeinfo.data.array.elem_type;
+        }
         return typeinfo;
     };
 
+    if (ast.typeinfo.kind != KIND_UNKNOWN){
+        return ast.typeinfo;
+    }
     if (ast.typeinfo.type){
         if (strcmp(ast.typeinfo.type, "") != 0){
             return ast.typeinfo;
         }
     };
-    return (AST_TypeInfo){"", 0};
+    return (AST_TypeInfo){"", KIND_UNKNOWN, 0};
 };
+
 
 
 int typeinfo_to_len(AST_TypeInfo type){
     if (type.ptrnum > 0){
         return 8;
     }
-    if (type.type == NULL){
+    if (type.kind == KIND_UNKNOWN){
         return 0;
     }
-    for (int v=0; v<typesLen; v++){
-        if (types[v].name && strcmp(types[v].name, type.type) == 0){
-            return types[v].length;
-        }
+    
+    switch (type.kind) {
+        case KIND_BOOL:
+        case KIND_CHAR:
+        case KIND_I8:
+            return 1;
+        case KIND_I16:
+            return 2;
+        case KIND_I32:
+        case KIND_INT:
+        case KIND_FLOAT:
+            return 4;
+        case KIND_I64:
+        case KIND_DOUBLE:
+            return 8;
+        case KIND_STRUCT:
+            for (int v=0; v<typesLen; v++){
+                if (strcmp(types[v].name, type.type) == 0){
+                    return types[v].length;
+                }
+            }
+            return 0;
+        case KIND_ARRAY:
+            return type.data.array.size * typeinfo_to_len(*type.data.array.elem_type);
+            return 0;
+        default:
+            return 0;
     }
-    return 0;
 }
+
 
 void typechecker_eat(Typechecker *typechecker, AST *ast);
 void typechecker_access(Typechecker *typechecker, AST *ast){
@@ -359,32 +396,31 @@ void typechecker_access(Typechecker *typechecker, AST *ast){
 
     AST *cast_ptr = NEW_NODE();
     cast_ptr->type = AST_CAST;
-    cast_ptr->typeinfo = (AST_TypeInfo){"char", 1};
+    cast_ptr->typeinfo = (AST_TypeInfo){"", KIND_CHAR, 1};
     cast_ptr->data.expr.left = original_base;
 
     AST *off_node = NEW_NODE();
     off_node->type = AST_INT;
-    off_node->typeinfo = (AST_TypeInfo){"int", 0};
+    off_node->typeinfo = (AST_TypeInfo){"", KIND_I32, 0};
     char off_str[10];
     snprintf(off_str, 10, "%d", field.offset);
     off_node->data.arg.value = strdup(off_str);
 
     AST *plus_node = NEW_NODE();
     plus_node->type = AST_PLUS;
-    plus_node->typeinfo = (AST_TypeInfo){"char", 1};
+    plus_node->typeinfo = (AST_TypeInfo){"", KIND_CHAR, 1};
     plus_node->data.expr.left = cast_ptr;
     plus_node->data.expr.right = off_node;
-    AST *index_node = NEW_NODE();
-    index_node->type = AST_INDEX;
-    index_node->typeinfo = field.type;
-    index_node->data.expr.left = plus_node;
-    index_node->data.expr.right = NEW_NODE();
-    index_node->data.expr.right->type = AST_INT;
-    index_node->data.expr.right->data.arg.value = strdup("0");
+    
+    AST *deref_node = NEW_NODE();
+    deref_node->type = AST_DEREF;
+    deref_node->typeinfo = field.type;
+    deref_node->data.expr.left = plus_node;
 
+    // Cast to field type
     ast->type = AST_CAST;
     ast->typeinfo = field.type;
-    ast->data.expr.left = index_node;
+    ast->data.expr.left = deref_node;
 }
 
 void typechecker_eat_lhs(Typechecker *typechecker, AST *ast){
@@ -437,11 +473,11 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         typechecker->functionlen++;
 
         // Check if expected type is valid
-        if (!(expected.type)){
-            goto error;
-        }else if(strcmp(expected.type, "") == 0){
-            goto error;
-        }
+        // if (!(expected.type)){
+        //     goto error;
+        // }else if(strcmp(expected.type, "") == 0){
+        //     goto error;
+        // }
 
 
         for (int i=0; i<ast->data.funcdef.blocklen; i++){
@@ -449,19 +485,15 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         };
 
 
-        AST_TypeInfo found = (AST_TypeInfo){"", 0};
+        AST_TypeInfo found = (AST_TypeInfo){"", KIND_UNKNOWN, 0};
         int a = 0;
         for (int i=0; i<ast->data.funcdef.blocklen; i++){
             if (ast->data.funcdef.block[i]->type == AST_RET){
                 found = fetch_type(typechecker, (ast->data.funcdef.block[i]));
                 a = 1;
-                if(!(found.type)){
+                if(found.kind == KIND_UNKNOWN){
                     goto error;
-                }else if(strcmp(found.type, "") == 0){
-                    goto error;
-                }else if(strcmp(typeinfo_to_string(expected), "const") == 0 || strcmp(typeinfo_to_string(found), "const") == 0){
-                    ;
-                }else if(strcmp(typeinfo_to_string(expected), typeinfo_to_string(found))){
+                }else if(!are_equal(&expected, &found)){
                     char string[100];
                     snprintf(string, 100, "Function expects a return type of %s, but return is found returning %s", typeinfo_to_string(expected), typeinfo_to_string(found));
                     error_generate_parser("ReturnError", string, ast->row, ast->col, ast->filename);
@@ -475,7 +507,8 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         };
     }else if(ast->type == AST_INDEX){
         typechecker_eat_lhs(typechecker, ast->data.expr.left);
-        if (strcmp(typeinfo_to_string(ast->data.expr.left->typeinfo), "char*") == 0){
+        AST_TypeInfo left_type = ast->data.expr.left->typeinfo;
+        if (left_type.kind == KIND_I8 && left_type.ptrnum == 1){
             ast->type = AST_DEREF;
             AST *astleft = ast->data.expr.left;
             AST *astright = ast->data.expr.right;
@@ -492,7 +525,7 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
             ast->data.assign.alias = false;
         }
         AST_TypeInfo expected = ast->typeinfo;
-        if (strcmp(typeinfo_to_string(expected), "unknown") == 0){
+        if (expected.kind == KIND_UNKNOWN){
             char *name = ast->data.assign.from->data.arg.value;
             int *p = malloc(sizeof(int));
             TC_Variable *var = find_variable_in_scopes(typechecker, ast->data.assign.from, p);
@@ -532,7 +565,8 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
             if (strcmp(typeinfo_to_string(expected), typeinfo_to_string(found)) != 0){
                 char string[100];
                 snprintf(string, 100, "Variable is supposed to be of type %s but is assigned to object of type %s", typeinfo_to_string(expected), typeinfo_to_string(found));
-                error_generate_parser("VarError", string, ast->row, ast->col, ast->filename);
+                AST *right = ast->data.assign.assignto;
+                error_generate_parser("VarError", string, right->row, right->col, right->filename);
             };
         }
     }else if(ast->type == AST_FUNCALL){
@@ -627,9 +661,9 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
             snprintf(string, 100, "%d", res);
             ast->type = AST_INT;
             ast->data.arg.value = strdup(string);
-            ast->typeinfo = (AST_TypeInfo){"int", 0};
+            ast->typeinfo = (AST_TypeInfo){"", KIND_I32, 0};
         }else {
-            ast->typeinfo = (AST_TypeInfo){"bool", 0};
+            ast->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
         }
         return;
     }else if(ast->type == AST_CAST){
@@ -683,7 +717,7 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
     }else if(ast->type == AST_WHILE){
         AST_TypeInfo type = fetch_type(typechecker, ast->data.while1.condition);
         typechecker_eat(typechecker, ast->data.while1.condition);
-        if (strcmp(type.type, "bool") || type.ptrnum != 0){
+        if (type.kind != KIND_I8 || type.ptrnum != 0){
         };
         for (int i=0; i<ast->data.while1.blocklen; i++){
             typechecker_eat(typechecker, ast->data.while1.block[i]);
@@ -692,7 +726,7 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         typechecker_eat(typechecker, ast->data.expr.left);
         ast->typeinfo = ast->data.expr.left->typeinfo;
     }else if(ast->type == AST_NOT){
-        ast->typeinfo = (AST_TypeInfo){"bool", 0};
+        ast->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
     }else if(ast->type == AST_VAR){
         TC_Variable *var = find_variable_in_scopes(typechecker, ast, NULL);
         if (var->value != NULL && current_mode->variable_alias){
@@ -701,23 +735,25 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         };
         return;
     }else if(ast->type == AST_AND){
-        ast->typeinfo = (AST_TypeInfo){"bool", 0};
+        ast->typeinfo = (AST_TypeInfo){.type = "", .kind = KIND_BOOL, .ptrnum = 0};
         typechecker_eat(typechecker, ast->data.expr.left);
         typechecker_eat(typechecker, ast->data.expr.right);
         char *type1 = typeinfo_to_string(ast->data.expr.left->typeinfo);
         char *type2 = typeinfo_to_string(ast->data.expr.right->typeinfo);
-        if (strcmp(type1, "bool") || strcmp(type2, "bool")) {
+        if (ast->data.expr.left->typeinfo.kind != KIND_BOOL || 
+            ast->data.expr.right->typeinfo.kind != KIND_BOOL) {
             char a[1000];
             snprintf(a, 1000, "Expected boolean types, found types \"%s\" and \"%s\"", type1, type2);
             error_generate_parser("AndError", a, ast->row, ast->col, ast->filename);
         }
     }else if(ast->type == AST_OR){
-        ast->typeinfo = (AST_TypeInfo){"bool", 0};
+        ast->typeinfo = (AST_TypeInfo){.type = "", .kind = KIND_BOOL, .ptrnum = 0};
         typechecker_eat(typechecker, ast->data.expr.left);
         typechecker_eat(typechecker, ast->data.expr.right);
         char *type1 = typeinfo_to_string(ast->data.expr.left->typeinfo);
         char *type2 = typeinfo_to_string(ast->data.expr.right->typeinfo);
-        if (strcmp(type1, "bool") || strcmp(type2, "bool")) {
+        if (ast->data.expr.left->typeinfo.kind != KIND_BOOL || 
+            ast->data.expr.right->typeinfo.kind != KIND_BOOL) {
             char a[1000];
             snprintf(a, 1000, "Expected boolean types, found types \"%s\" and \"%s\"", type1, type2);
             error_generate_parser("AndError", a, ast->row, ast->col, ast->filename);
@@ -747,7 +783,7 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         s->size = offset;
         char string[100];
         snprintf(string, 100, "struct%s", ast->data.struct1.name);
-        types[typesLen++] = (struct Pair){strdup(string), s->size, "structure"};
+        types[typesLen++] = (struct Pair){KIND_STRUCT, strdup(string), s->size, "structure"};
     }else if(ast->type == AST_ACCESS){
         typechecker_eat(typechecker, ast->data.expr.left);
         if (ast->data.expr.left->type == AST_VAR){

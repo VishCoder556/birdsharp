@@ -197,9 +197,34 @@ typedef struct {
     bool alias;
 } AST_Assign;
 
-typedef struct {
+typedef enum {
+    KIND_VOID,
+    KIND_CHAR,
+    KIND_I8,
+    KIND_I16,
+    KIND_I32,
+    KIND_I64,
+    KIND_INT,
+    KIND_FLOAT,
+    KIND_DOUBLE,
+    KIND_STRUCT,
+    KIND_CONST,
+    KIND_BOOL,
+    KIND_UNKNOWN,
+    KIND_ARRAY
+} TypeKind;
+
+typedef struct AST_TypeInfo {
     char *type;
+    TypeKind kind;
     char ptrnum;
+    
+    union {
+        struct {
+            int size;
+            struct AST_TypeInfo *elem_type;
+        } array;
+    } data;
 } AST_TypeInfo;
 
 typedef struct {
@@ -294,21 +319,22 @@ typedef struct Argument {
 }Argument;
 
 struct Pair {
+    TypeKind kind;
     char *name;
     int length;
     char *longname;
 };
 
 struct Pair types[100] = {
-    (struct Pair){"int", 4, "integer"},
-    (struct Pair){"char", 1, "character"},
-    (struct Pair){"long", 8, "long integer"},
-    (struct Pair){"float", 4, "float"},
-    (struct Pair){"i8", 1, "8-bit integer"},
-    (struct Pair){"i16", 2, "16-bit integer"},
-    (struct Pair){"i32", 4, "32-bit integer"},
-    (struct Pair){"i64", 8, "64-bit integer"},
-    (struct Pair){"bool", 1, "boolean (only 0 or 1)"},
+    (struct Pair){KIND_I32, "int", 4, "integer"},
+    (struct Pair){KIND_CHAR, "char", 1, "character"},
+    (struct Pair){KIND_I64, "long", 8, "long integer"},
+    (struct Pair){KIND_FLOAT, "float", 4, "float"},
+    (struct Pair){KIND_I8, "i8", 1, "8-bit integer"},
+    (struct Pair){KIND_I16, "i16", 2, "16-bit integer"},
+    (struct Pair){KIND_I32, "i32", 4, "32-bit integer"},
+    (struct Pair){KIND_I64, "i64", 8, "64-bit integer"},
+    (struct Pair){KIND_BOOL, "bool", 1, "boolean (only 0 or 1)"},
 };
 int typesLen = 9;
 
@@ -387,17 +413,40 @@ char *typeinfo_to_string(AST_TypeInfo typeinfo){
     char a[1000];
     int len = 0;
     
-    if (typeinfo.type == NULL) {
-        return strdup("");
+    if (typeinfo.kind == KIND_UNKNOWN) {
+        return strdup("unknown");
     }
     
-    size_t type_len = strlen(typeinfo.type);
+    const char *canonical;
+    switch (typeinfo.kind) {
+        case KIND_VOID:    canonical = "void"; break;
+        case KIND_BOOL:    canonical = "bool"; break;
+        case KIND_CHAR:
+        case KIND_I8:      canonical = "char"; break;
+        case KIND_I16:     canonical = "short"; break;
+        case KIND_I32:
+        case KIND_INT:     canonical = "int"; break;
+        case KIND_I64:     canonical = "long"; break;
+        case KIND_FLOAT:   canonical = "float"; break;
+        case KIND_DOUBLE:  canonical = "double"; break;
+        case KIND_STRUCT:
+            if (typeinfo.type && strncmp(typeinfo.type, "struct", 6) == 0) {
+                canonical = typeinfo.type + 6;
+            } else {
+                canonical = typeinfo.type ? typeinfo.type : "struct";
+            }
+            break;
+        case KIND_CONST:   canonical = "const"; break;
+        default:           canonical = "unknown"; break;
+    }
+    
+    size_t type_len = strlen(canonical);
     if (type_len >= 1000) {
         error_generate("TypeError", "Type name too long");
         return strdup("");
     }
     
-    strncpy(a, typeinfo.type, type_len);
+    strncpy(a, canonical, type_len);
     len = type_len;
     a[len] = '\0';
     
@@ -420,30 +469,7 @@ void parser_peek(Parser *parser){
     };
 };
 
-char parse_type(Parser *parser, AST_TypeInfo *typeinfo){ // Assumes parser->cur points to the idx of the type 
-    /* char c = -1;
-    for (int v=0; v<typesLen; v++){
-        if (strcmp(types[v].name, parser->tokens[parser->cur].value) == 0){
-            c = v;
-            break;
-        };
-    }; */
-    char res[100];
-    strncpy(res, "", 100);
-    if (strcmp(parser->tokens[parser->cur].value, "struct") == 0){
-        strcat(res, "struct");
-        parser_peek(parser);
-    };
-    strcat(res, parser->tokens[parser->cur].value);
-    typeinfo->type = strdup(res);
-    parser->cur++;
-    typeinfo->ptrnum = 0;
-    while (parser->tokens[parser->cur].type == TOKEN_MUL){
-        typeinfo->ptrnum++;
-        parser_peek(parser);
-    };
-    return 0;
-}
+
 char is_type(Parser *parser, Token tok){
     char c = -1;
     if (strcmp(tok.value, "struct") == 0){
@@ -677,7 +703,8 @@ char tokenizer_token(Tokenizer *tokenizer){
         }else {
             tokenizer->cur--;
             tokenizer->col--;
-            tokenizer->tokens[tokenizer->tokenlen].type = TOKEN_INT;strcpy(tokenizer->tokens[tokenizer->tokenlen].value, res);
+            tokenizer->tokens[tokenizer->tokenlen].type = TOKEN_INT;
+            strcpy(tokenizer->tokens[tokenizer->tokenlen].value, res);
             tokenizer->tokens[tokenizer->tokenlen].row = tokenizer->line;
             tokenizer->tokens[tokenizer->tokenlen].col = tokenizer->col;
             tokenizer->tokens[tokenizer->tokenlen].name = tokenizer->name;tokenizer->tokenlen++;
@@ -789,6 +816,80 @@ void parser_expect(Parser *parser, int type){
     }else {
     }
 };
+char parse_type(Parser *parser, AST_TypeInfo *typeinfo){
+    char res[100];
+    strncpy(res, "", 100);
+    
+    bool is_struct = false;
+    if (strcmp(parser->tokens[parser->cur].value, "struct") == 0){
+        strcat(res, "struct");
+        parser_peek(parser);
+        is_struct = true;
+    };
+    
+    strcat(res, parser->tokens[parser->cur].value);
+    typeinfo->type = strdup(res);
+    
+    typeinfo->kind = KIND_UNKNOWN;
+    
+    if (is_struct) {
+        typeinfo->kind = KIND_STRUCT;
+    } else {
+        for (int i = 0; i < typesLen; i++) {
+            if (strcmp(types[i].name, parser->tokens[parser->cur].value) == 0) {
+                typeinfo->kind = types[i].kind;
+                break;
+            }
+        }
+    }
+    
+    parser->cur++;
+    
+    if (parser->tokens[parser->cur].type == TOKEN_LBRACKET) {
+        parser_peek(parser);
+        
+        int size = 0;
+        if (parser->tokens[parser->cur].type == TOKEN_INT) {
+            size = atoi(parser->tokens[parser->cur].value);
+            parser_peek(parser);
+        }
+        
+        parser_expect(parser, TOKEN_RBRACKET);
+        
+        AST_TypeInfo *elem_type = malloc(sizeof(AST_TypeInfo));
+        *elem_type = *typeinfo;
+        
+        typeinfo->kind = KIND_ARRAY;
+        typeinfo->data.array.size = size;
+        typeinfo->data.array.elem_type = elem_type;
+        
+        while (parser->tokens[parser->cur].type == TOKEN_LBRACKET) {
+            parser_peek(parser);
+            
+            int inner_size = 0;
+            if (parser->tokens[parser->cur].type == TOKEN_INT) {
+                inner_size = atoi(parser->tokens[parser->cur].value);
+                parser_peek(parser);
+            }
+            
+            parser_expect(parser, TOKEN_RBRACKET);
+            
+            AST_TypeInfo *new_elem = malloc(sizeof(AST_TypeInfo));
+            *new_elem = *typeinfo;
+            
+            typeinfo->kind = KIND_ARRAY;
+            typeinfo->data.array.size = inner_size;
+            typeinfo->data.array.elem_type = new_elem;
+        }
+    }
+    
+    typeinfo->ptrnum = 0;
+    while (parser->tokens[parser->cur].type == TOKEN_MUL){
+        typeinfo->ptrnum++;
+        parser_peek(parser);
+    };
+    return 0;
+}
 AST *parser_eat_expr(Parser *parser);
 
 AST *mode_parse_expr(Parser *parser){
@@ -924,7 +1025,8 @@ AST *parser_eat_expr(Parser *parser){
         return ast;
     }else if (parser->tokens[parser->cur].type == TOKEN_STRING){
         ast->type = AST_STRING;
-        ast->typeinfo.type = "char";
+        ast->typeinfo.type = "";
+        ast->typeinfo.kind = KIND_CHAR;
         ast->typeinfo.ptrnum = 1;
         ast->data.arg.value = parser->tokens[parser->cur].value;
         parser_peek(parser);
@@ -932,7 +1034,9 @@ AST *parser_eat_expr(Parser *parser){
         parser_peek(parser);
         if (parser->tokens[parser->cur].type == TOKEN_INT){
             ast->type = AST_INT;
-            ast->typeinfo.type = "const";
+            ast->typeinfo.type = "";
+            ast->typeinfo.kind = KIND_CONST;
+            ast->typeinfo.ptrnum = 0;
             char a[500];
             snprintf(a, 500, "-%s", parser->tokens[parser->cur].value);
             ast->data.arg.value = strdup(a);
@@ -942,24 +1046,30 @@ AST *parser_eat_expr(Parser *parser){
         }
     }else if (parser->tokens[parser->cur].type == TOKEN_INT){
         ast->type = AST_INT;
-        ast->typeinfo.type = "const";
+        ast->typeinfo.type = "";
+        ast->typeinfo.kind = KIND_CONST;
+        ast->typeinfo.ptrnum = 0;
         ast->data.arg.value = parser->tokens[parser->cur].value;
         if (strcmp(parser->tokens[parser->cur].value, "true") == 0){
             ast->data.arg.value = "1";
-            ast->typeinfo.type = "bool";
+            ast->typeinfo.type = "";
+            ast->typeinfo.kind = KIND_BOOL;
         }else if (strcmp(parser->tokens[parser->cur].value, "false") == 0){
             ast->data.arg.value = "0";
-            ast->typeinfo.type = "bool";
+            ast->typeinfo.type = "";
+            ast->typeinfo.kind = KIND_BOOL;
         }
         parser_peek(parser);
     }else if (parser->tokens[parser->cur].type == TOKEN_FLOAT){
         ast->type = AST_FLOAT;
-        ast->typeinfo.type = "float";
+        ast->typeinfo.type = "";
+        ast->typeinfo.kind = KIND_FLOAT;
         ast->data.arg.value = parser->tokens[parser->cur].value;
         parser_peek(parser);
     }else if (parser->tokens[parser->cur].type == TOKEN_CHAR){
         ast->type = AST_CHAR;
-        ast->typeinfo.type = "char";
+        ast->typeinfo.type = "";
+        ast->typeinfo.kind = KIND_CHAR;
         ast->data.arg.value = parser->tokens[parser->cur].value;
         parser_peek(parser);
     }else if (parser->tokens[parser->cur].type == TOKEN_ID){
@@ -1192,7 +1302,7 @@ AST *parser_eat_expr(Parser *parser){
             };
             parser_peek(parser);
             ast2->data.expr.right = parser_eat_expr(parser);
-            ast2->typeinfo = (AST_TypeInfo){"bool", 0};
+            ast2->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
             ast = ast2;
         };
     }
@@ -1210,7 +1320,7 @@ AST *parser_eat_expr(Parser *parser){
             };
             parser_peek(parser);
             ast2->data.expr.right = parser_eat_expr(parser);
-            ast2->typeinfo = (AST_TypeInfo){"bool", 0};
+            ast2->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
             ast = ast2;
         }else {
             error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->name);
@@ -1230,7 +1340,7 @@ AST *parser_eat_expr(Parser *parser){
             };
             parser_peek(parser);
             ast2->data.expr.right = parser_eat_expr(parser);
-            ast2->typeinfo = (AST_TypeInfo){"bool", 0};
+            ast2->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
             ast = ast2;
         }else {
             error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->name);
@@ -1472,7 +1582,8 @@ AST *parser_eat_ast(Parser *parser){
                     ast->row = parser->tokens[parser->cur].row;
                     ast->col = parser->tokens[parser->cur].col;
                     ast->filename = parser->tokens[parser->cur].name;
-                    ast->typeinfo.type = "unknown";
+                    ast->typeinfo.type = "";
+                    ast->typeinfo.kind = KIND_UNKNOWN;
                     ast->data.assign.from = ast_expr;
                     parser_peek(parser);
                     ast->data.assign.assignto = parser_eat_expr(parser);
@@ -1502,7 +1613,8 @@ AST *parser_eat_ast(Parser *parser){
             ast->row = parser->tokens[parser->cur].row;
             ast->col = parser->tokens[parser->cur].col;
             ast->filename = parser->tokens[parser->cur].name;
-            ast->typeinfo.type = "unknown";
+            ast->typeinfo.type = "";
+            ast->typeinfo.kind = KIND_UNKNOWN;
             ast->data.assign.new = false;
             ast->data.assign.from = ast_expr;
             parser_peek(parser);
@@ -1546,7 +1658,7 @@ AST parser_eat_body(Parser *parser){
             ast.data.struct1.fieldlen = 0;
             char strin[100];
             snprintf(strin, 100, "struct%s", ast.data.struct1.name);
-            types[typesLen++] = (struct Pair){strin, 0, "Structure"};
+            types[typesLen++] = (struct Pair){KIND_STRUCT, strin, 0, "Structure"};
             while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
                 AST_TypeInfo *type = malloc(sizeof(AST_TypeInfo));
                 parse_type(parser, type);
@@ -1638,12 +1750,20 @@ int main(int argc, char **argv){
     char *input_file = "";
     char *output_file = "";
     while (*argv){
-        if (*argv[0] == '-'){ // Settings command
+        if (*argv[0] == '-'){
             if(strcmp(*argv, "-o") == 0){
                 argv++;
+                if (!*argv) {
+                    printf("error: -o requires an argument\n");
+                    return -1;
+                }
                 output_file = *argv;
             }else if(strcmp(*argv, "-h") == 0){
                 printf("%s", HELP);
+                return 0;
+            }else {
+                printf("error: unknown flag '%s'\n", *argv);
+                return -1;
             }
         } else {
             input_file = *argv;
