@@ -1,6 +1,7 @@
 #!optimize speed
 #!include "std.bsh"
 
+
 int main(long argc, char **argv) {
     int[10] a
     a[0] = 5

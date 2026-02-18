@@ -5,7 +5,7 @@
  * Why Use BirdSharp:
  *   1. BirdSharp, as stated earlier, is similar to C, but has nearly no bloat.
  *   2. BirdSharp is extremely fast (although dynamic libraries seem to slow the compile time a lot)
- *   3. BirdSharp supports bytecode and compilation directly into Assembly that can be compiled to create executables.
+ *   3. BirdSharp supports compilation directly into Assembly that can be compiled to create executables.
  *   4. BirdSharp has many features unique to it, such as modes, that allow you to change some stuff about the compiler during runtime, instead of having to rely on compiler flags for such tasks.
  *
  * NOTE: BirdSharp is not finished yet, and hence has a ton of unclean code, and places to improve upon. Do not rely on BirdSharp for complex projects.
