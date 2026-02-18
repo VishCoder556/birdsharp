@@ -106,6 +106,36 @@ void optimize_speed(){
     current_mode->inline_ifs = true;
 };
 
+void optimize(AST *ast){
+    char *str = ast->data.mode.name;
+    char *res = ast->data.mode.res;
+    if (strncmp(str, "config", strlen("config"))){
+        error_generate_parser("ModeError", "Non-configuration mode found", ast->row, ast->col, ast->filename);
+    }
+    str += strlen("config");
+    int a = 1;
+    if (strcmp(res, "on") == 0){
+        a = 1;
+    }else if (strcmp(res, "off") == 0){
+        a = 0;
+    }else {
+        char string[100];
+        snprintf(string, 100, "Unknown result \"%s\" found within configuration mode", res);
+        error_generate_parser("ModeError", string, ast->row, ast->col, ast->filename);
+    };
+    if (strcmp(str, "alias") == 0){
+        current_mode->variable_alias = a;
+    }else if (strcmp(str, "fold") == 0){
+        current_mode->constant_folding = a;
+    }else if (strcmp(str, "ternary") == 0){
+        current_mode->inline_ifs = a;
+    }else {
+        char string[100];
+        snprintf(string, 100, "Unknown string \"%s\" found within configuration mode", str);
+        error_generate_parser("ModeError", string, ast->row, ast->col, ast->filename);
+    };
+}
+
 
 TC_Scope initialize_scope(){
     TC_Scope scope;
@@ -192,7 +222,7 @@ Typechecker *typechecker_init(Parser *parser){
     global_scope = malloc(sizeof(TC_Scope));
     *global_scope = scope;
     current_mode = malloc(sizeof(Mode));
-    // optimize_speed();
+    optimize_speed();
     return typechecker;
 };
 
@@ -763,6 +793,8 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
             externs[externlen++] = ast->data.mode.res;
         }else if (strcmp(ast->data.mode.name, "optimize") == 0){
             optimize_speed();
+        }else {
+            optimize(ast);
         };
     }else if(ast->type == AST_STRUCT){
         TC_Struct *s = &structs[struct_count++];

@@ -80,6 +80,33 @@ int main(long argc, char **argv) {
 }
 ```
 
+### 5. Modes
+Modes are probably one of BirdSharp's most spectacular features. Some modes, like *#!include* are rather boring, only doing things such as including files. However, other modes can help modify the entire programming language. There are some rules on modes, however, such as it not being able to completely modify a programming language, just some features that would be helpful. There aren't necessarily modes for everything, as the only current special modes included are optimization modes. Here is an example of them:
+
+```c
+#!include "std.bsh"
+
+int main() {
+    int a = 1
+    int b = 2
+    int c = 3
+    int d = 4
+    int e = 5
+    int f = 6
+
+    int result = a + b + c + d + e + f
+    
+    exit(result)
+    return 0
+}
+```
+
+This program returns '21'. However, if you look at the IR, you will find out that it also knows that the result of this is 21 at compile-time. This is because by default BirdSharp enables constant folding and aliases. By adding the following to the start of the code, you can make the IR actually complete the operation:
+```c
+#!config alias off
+#!config fold off
+```
+
 ## BirdSharp's Core Ideas:
 * **No excessive magic:** The code should execute exactly as the coder intends it: some optimizations are free to occur, but the user's main purpose will not be overriden.
 * **Readability:** The coder, given code, should be able to understand it's exact intent without having to rely on external help.

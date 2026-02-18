@@ -925,6 +925,10 @@ char try_parse_mode(Parser *parser, AST *ast){
                     break;
                 }else if (strcmp(name, "optimize") == 0){
                     break;
+                }else if (strcmp(name, "config") == 0){
+                    parser_peek(parser);
+                    strncat(name, parser->tokens[parser->cur].value, 100);
+                    break;
                 };
                 parser->cur++;
             }

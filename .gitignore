@@ -6,16 +6,15 @@
 *.out
 *.a
 *.so
-lang/bs
-lang/bs.dSYM/
+bs
+bs.dSYM/
 asm/main
-asm/irc
+irc
 
 # Temporary files
 tmp.wat
 *.bt
 *.s
 
-# Test outputs
-lang/test.txt
-hello
+res/
+tmp/

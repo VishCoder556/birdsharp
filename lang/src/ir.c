@@ -277,7 +277,7 @@ char *r_based_on_size(char *reg, int type) {
 }
 char *move_imm(void *generator, char *str, char *reg, AST_TypeInfo typeinfo){
     if (strcmp(str, reg) == 0) {
-        return "";
+        return reg;
     }
     generator_write_text(generator, "\t");
     int type = 0;

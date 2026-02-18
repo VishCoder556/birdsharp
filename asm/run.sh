@@ -1,1 +1,1 @@
-cc src/main.c -o irc
+cc src/main.c -o ../irc

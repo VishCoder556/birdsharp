@@ -65,8 +65,8 @@ void preprocess(char *main_file, Tokenizer *tokenizer){
                 );
 
                 for (int v=0; v<tokenizer2->tokenlen; v++){
-                    tokenizer->tokens[v].name = strdup(tokenizer2->name);
                     tokenizer->tokens[i + v] = tokenizer2->tokens[v];
+                    // tokenizer->tokens[i + v].name = strdup(tokenizer2->name);
                 }
 
                 tokenizer->tokenlen += tokenizer2->tokenlen - 4;
