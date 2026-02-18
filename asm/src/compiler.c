@@ -251,34 +251,35 @@ char *compiler_eat_expr(Compiler *compiler, AST *ast, int size);
 
 
 
-char *move(Compiler *compiler, char *reg, char *buf, int typeinfo){
-    if ((reg[0] == 'w' || reg[0] == 'd' || reg[0] == 'b' || reg[0] == 'q') && (buf[0] == 'w' || buf[0] == 'd' || buf[0] == 'b' || buf[0] == 'q')){
-        char *right = move(compiler, "r14", buf, typeinfo);
-        AST_Reg _reg = reg_real_to_num("r14");
-        char *s = change_reg_size(_reg.reg, typeinfo);
-        return move(compiler, reg, s, typeinfo);
-    }
-    
-    char *op = "mov";
-    char *final_reg = reg;
-    char *final_buf = buf;
-    
+char *move(Compiler *compiler, char *reg, char *buf, int typeinfo) {
+    if (strcmp(reg, buf) == 0) return reg;
+
     AST_Reg _reg = reg_real_to_num(reg);
-    if (_reg.reg != -1) {
-        final_reg = change_reg_size(_reg.reg, typeinfo);
-    } else {
-        final_reg = reg; 
-    }
-    
     AST_Reg _buf = reg_real_to_num(buf);
-    if (_buf.reg != -1) {
-        final_buf = change_reg_size(_buf.reg, typeinfo);
-    } else {
-        final_buf = buf;
+
+    char *final_reg = (_reg.reg != -1) ? change_reg_size(_reg.reg, typeinfo) : reg;
+    char *final_buf = (_buf.reg != -1) ? change_reg_size(_buf.reg, typeinfo) : buf;
+
+    if (_reg.reg == -1 && _buf.reg == -1) {
+        move(compiler, "r10", buf, typeinfo); 
+        return move(compiler, reg, "r10", typeinfo);
     }
-    compiler_write_text_line(compiler, "%s %s, %s", op, final_reg, final_buf);
+
+    char *size_prefix = "";
+    if (typeinfo == 8) size_prefix = "qword";
+    else if (typeinfo == 4) size_prefix = "dword";
+    else if (typeinfo == 2) size_prefix = "word";
+    else if (typeinfo == 1) size_prefix = "byte";
+
+    if (_reg.reg == -1) {
+        compiler_write_text_line(compiler, "mov %s %s, %s", size_prefix, final_reg, final_buf);
+    } else if (_buf.reg == -1) {
+        compiler_write_text_line(compiler, "mov %s, %s %s", final_reg, size_prefix, final_buf);
+    } else {
+        compiler_write_text_line(compiler, "mov %s, %s", final_reg, final_buf);
+    }
+
     return final_reg;
-    
 }
 
 void compiler_compare(Compiler *compiler, AST *ast){
@@ -523,21 +524,42 @@ void compiler_eat_ast(Compiler *compiler, AST ast){
     }else if(ast.type == AST_ADD){
         char *buf = compiler_eat_expr(compiler, ast.data.operation.right, -1);
         char *reg = reg_to_name(ast.data.operation.reg);
+        
         AST_Reg _reg = reg_real_to_num(reg);
         AST_Reg _buf = reg_real_to_num(buf);
-        if (_buf.size != _reg.size){
-            compiler_write_text_line(compiler, "mov %s, %s", buf, buf);
-        };
-        compiler_write_text_line(compiler, "add %s, %s", reg, change_reg_size(_buf.reg, _reg.size));
+
+        if (_buf.reg != -1) {
+            char *resized_buf = change_reg_size(_buf.reg, _reg.size);
+            compiler_write_text_line(compiler, "add %s, %s", reg, resized_buf);
+        } else {
+            compiler_write_text_line(compiler, "add %s, %s", reg, buf);
+        }
     }else if(ast.type == AST_SUB){
         char *buf = compiler_eat_expr(compiler, ast.data.operation.right, -1);
         char *reg = reg_to_name(ast.data.operation.reg);
+        
         AST_Reg _reg = reg_real_to_num(reg);
         AST_Reg _buf = reg_real_to_num(buf);
-        compiler_write_text_line(compiler, "sub %s, %s", reg, change_reg_size(_buf.reg, _reg.size));
+
+        if (_buf.reg != -1) {
+            char *resized_buf = change_reg_size(_buf.reg, _reg.size);
+            compiler_write_text_line(compiler, "sub %s, %s", reg, resized_buf);
+        } else {
+            compiler_write_text_line(compiler, "sub %s, %s", reg, buf);
+        }
     }else if(ast.type == AST_MUL){
         char *buf = compiler_eat_expr(compiler, ast.data.operation.right, -1);
-        compiler_write_text_line(compiler, "imul %s, %s", reg_to_name(ast.data.operation.reg), buf);
+        char *reg = reg_to_name(ast.data.operation.reg);
+        
+        AST_Reg _reg = reg_real_to_num(reg);
+        AST_Reg _buf = reg_real_to_num(buf);
+
+        if (_buf.reg != -1) {
+            char *resized_buf = change_reg_size(_buf.reg, _reg.size);
+            compiler_write_text_line(compiler, "imul %s, %s", reg, resized_buf);
+        } else {
+            compiler_write_text_line(compiler, "imul %s, %s", reg, buf);
+        }
     }else if(ast.type == AST_DIV){
         char *reg = reg_to_name(ast.data.operation.reg);
         compiler_write_text_line(compiler, "push rax");

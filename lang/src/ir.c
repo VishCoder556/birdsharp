@@ -582,7 +582,7 @@ char *ir_generate_expr(void *generator, AST ast){
         snprintf(string, 100, "Unknown type found: '%d'", ast.type);
         error_generate_parser("TypeError", string, ast.row, ast.col, ast.filename);
     };
-    return "";
+    return "hi";
 };
 
 char *ir_generate_lhs(void *generator, AST ast){
