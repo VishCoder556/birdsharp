@@ -4,7 +4,6 @@
 
 ## BirdSharp Examples
 ### 1. Hello World (using the Standard Library)
-This simple Hello World program can already show BirdSharp's versaltility. This code uses the Standard Library, a simple library that converts high-level instructions into syscalls.
 
 ```c
 #!include "std.bsh"
@@ -17,7 +16,6 @@ int main(long argc, char **argv) {
 ```
 
 ### 2. Fibonacci Function
-In particular, a Fibonnaci function can say whether a programming language is incompetent or powerful. Again, BirdSharp excels with its easy syntax
 
 ```c
 int fibonacci(int n) {
