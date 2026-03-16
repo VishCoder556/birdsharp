@@ -24,16 +24,6 @@ typedef struct {
     int functionlen;
 }Reviser_Global;
 
-#define REVISER_REGISTERS 14
-
-typedef struct {
-    AST_Reg reg;
-    int credits; // Virtual Registers are given a credit score as a priority index
-    int firstmention; // As a line
-    int lastmention; // As a line
-}Reviser_VirtualReg;
-
-
 
 typedef struct {
     char *name;
@@ -43,5 +33,4 @@ typedef struct {
     int cur;
 
     Reviser_Global *global;
-    Reviser_VirtualReg *regs;
 }Reviser;

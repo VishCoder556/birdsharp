@@ -1,32 +1,54 @@
-/*
- * Register Management (Aligned to Compiler Arrays)
+/* Registers
  * --- VALUES ---
- * v0 = Return Value / Syscall Number = rax
+ *  v0 = Return value
  * --- FUNCTION ARGUMENTS ---
- * a0 = 1st Argument                  = rdi
- * a1 = 2nd Argument                  = rsi
- * a2 = 3rd Argument                  = rdx
- * a3 = 4th Argument                  = r10
- * a4 = 5th Argument                  = r8
- * a5 = 6th Argument                  = r9
+ *  a0 = 1st Argument
+ *  a1 = 2nd Argument
+ *  a2 = 3rd Argument
+ *  a3 = 4th Argument
+ *  a4 = 5th Argument
+ *  a5 = 6th Argument
  * --- TEMPORARIES ---
- * t0 = Temporary Register            = r15
- * t1 = Temporary Register            = rcx
- * t2 = Saved Register                = r14
+ *  t0 = Temporary Register
+ *  t1 = Temporary Register
+ *  t2 = Temporary Register
+ *  t3 = Temporary Register
+ *  t4 = Temporary Register
+ *  t5 = Temporary Register
+ *  t6 = Temporary Register
+ *  t7 = Temporary Register
+ *  t8 = Temporary Register
+ *  t9 = Temporary Register
+ *  t10 = Temporary Register
+ *  t11 = Temporary Register
+ *  t12 = Temporary Register
+ *  t13 = Temporary Register
+ *  t14 = Temporary Register
+ *  t15 = Temporary Register
  * --- PRESERVED ---
- * s0 = Saved Register                = rbx
- * s1 = Saved Register                = r13
- */
+ *  s0 = Saved Register
+ *  s1 = Saved Register
+ *  s2 = Saved Register
+ *  s3 = Saved Register
+ *  s4 = Saved Register
+ *  s5 = Saved Register
+ *  s6 = Saved Register
+*/
 
 
-char *regs[14] = {
-    "v0", "s0", "a3", "a2", "a1", "a0", "a4", "a5", "t0", "__", "t1", "__", "s1", "t2"
+#define REGISTERS 32
+char *regs[REGISTERS] = {
+    "v0", "s0", "a3", "a2", "a1", "a0", "a4", "a5", "t0", "__", "t1", "__", "s1", "t2",
+    "t3", "t4", "t5", "t6",
+    "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15",
+    "s2", "s3", "s4", "s5", "s6"
 };
+static_assert((sizeof(regs) / sizeof(regs[0])) == REGISTERS, "Too many registers");
 
 
 int is_reg(char *reg){
-    for (int i=0; i<14; i++){
-        if (string_compare(reg, regs[i], 2) == 0){
+    for (int i=0; i<REGISTERS; i++){
+        if (strcmp(reg, regs[i]) == 0) {
             return 0;
         };
     }
@@ -56,31 +78,22 @@ char *size_to_name(int size){
     };
     return 0;
 };
-
-AST_Reg reg_to_num(char *reg){
+AST_Reg _reg_to_num(char *reg, int size){
     AST_Reg reg1 = (AST_Reg){0};
     reg1.reg = -1;
-    for (int i=0; i<15; i++){
-        if (string_compare(reg, regs[i], 2) == 0){
+    for (int i=0; i<REGISTERS; i++){
+        if (strcmp(reg, regs[i]) == 0){
             reg1.reg = i;
         };
     }
-    if (reg[2] != '\0'){
-        switch (reg[2]){
-            case 'b': reg1.size = 1; break;
-            case 'w': reg1.size = 2; break;
-            case 'd': reg1.size = 4; break;
-        };
+    if (size != 0){
+        reg1.size = size;
     }else {
         reg1.size = 8;
-    }
-    if (reg1.reg == -1){
-        char string[100];
-        snprintf(string, 100, "Register '%s' doesn't exist", reg);
-        error_generate("InvalidRegisterError", string);
-    }
+    };
     return reg1;
 };
+
 
 void append_ast_to_list(AST **head, AST *new_node, int *count) {
     new_node->next = NULL;
@@ -155,8 +168,79 @@ void parser_expect(Parser *parser, int type){
     }else {
     }
 };
+AST_Reg reg_to_num(Parser *parser){
+    Token cur = parser->tokens[parser->cur];
+    char *reg = cur.value;
+    AST_Reg reg1 = _reg_to_num(reg, 0);
+    parser_peek(parser);
+    cur = parser->tokens[parser->cur];
+    if (cur.type == TOKEN_COLON){
+        parser_peek(parser);
+        cur = parser->tokens[parser->cur];
+        parser_expect(parser, TOKEN_ID);
+        reg1.size = name_to_size(cur.value);
+    }else {
+        reg1.size = 8;
+    };
 
+    if (reg1.reg == -1){
+        char string[100];
+        snprintf(string, 100, "Register '%s' doesn't exist", reg);
+        error_generate("InvalidRegisterError", string);
+    }
+    return reg1;
+};
 #define ret(ast) ast->row = orig.row; ast->col = orig.col; return ast
+char *parser_label(Parser *parser){
+    Token token = parser->tokens[parser->cur];
+    if (string_compare(token.value, "label", strlen(token.value)) == 0){
+        parser_peek(parser);
+        char string[100];
+        token = parser->tokens[parser->cur];
+        snprintf(string, 100, ".%s", token.value);
+        parser_peek(parser);
+        return strdup(string);
+    }else if (string_compare(token.value, "labelend", strlen(token.value)) == 0){
+        parser_peek(parser);
+        char string[100];
+        token = parser->tokens[parser->cur];
+        snprintf(string, 100, ".%s_end", token.value);
+        parser_peek(parser);
+        return strdup(string);
+    }else {
+        token = parser->tokens[parser->cur];
+        parser_peek(parser);
+        return strdup(token.value);
+    };
+}
+AST *parser_eat_expr(Parser *parser);
+void parser_eat_call(Parser *parser, AST *ast){
+    Token token = parser->tokens[parser->cur];
+    Token orig = parser->tokens[parser->cur];
+    ast->type = AST_CALL;
+    parser_peek(parser);
+    ast->data.jmpif.label = parser_label(parser);
+    token = parser->tokens[parser->cur];
+    if (string_compare(token.value, "if", 2) == 0){
+        ast->type = AST_CALLIF;
+        parser_peek(parser);
+        ast->data.jmpif.reg = parser_eat_expr(parser);
+    }else if (string_compare(token.value, "ifnot", 5) == 0){
+        ast->type = AST_CALLIFN;
+        parser_peek(parser);
+        ast->data.jmpif.reg = parser_eat_expr(parser);
+    }
+}
+void parser_eat_syscall(Parser *parser, AST *ast){
+    Token token = parser->tokens[parser->cur];
+    Token orig = parser->tokens[parser->cur];
+    parser_peek(parser);
+    parser_expect(parser, TOKEN_DOT);
+    token = parser->tokens[parser->cur];
+    parser_expect(parser, TOKEN_ID);
+    ast->type = AST_SYSCALL;
+    ast->data.text.value = strdup(token.value);
+}
 
 AST *parser_eat_expr(Parser *parser){
     Token token = parser->tokens[parser->cur];
@@ -189,6 +273,12 @@ AST *parser_eat_expr(Parser *parser){
         ast->data.text.value = strdup(token.value);
     };
     if (token.type == TOKEN_ID){
+        if (strcmp(token.value, "call") == 0){
+            parser_eat_call(parser, ast);
+        }else if (strcmp(token.value, "syscall") == 0){
+            parser_eat_call(parser, ast);
+        }
+
         if(name_to_size(token.value) != 0){
             parser_peek(parser);
             parser_expect(parser, TOKEN_LBRACKET);
@@ -200,13 +290,22 @@ AST *parser_eat_expr(Parser *parser){
         };
         if (is_reg(token.value) == 0){
             ast->type = AST_REG;
+            ast->data.operation.reg = reg_to_num(parser);
+            goto extr;
         }else {
             ast->type = AST_VAR;
+            ast->data.text.value = strdup(token.value);
         };
-        ast->data.text.value = strdup(token.value);
     };
     parser_peek(parser);
 extr:
+    token = parser->tokens[parser->cur];
+    if (token.type == TOKEN_COLON){
+        parser_peek(parser);
+        Token token = parser->tokens[parser->cur];
+        parser_expect(parser, TOKEN_ID);
+        ast->typeinfo = name_to_size(token.value);
+    };
     token = parser->tokens[parser->cur];
     if (token.type == TOKEN_EQ){
         parser_peek(parser);
@@ -217,15 +316,7 @@ extr:
         ast1->data.expr.right = parser_eat_expr(parser);
         ret(ast1);
     };
-    if (token.type == TOKEN_EXC){
-        parser_peek(parser);
-        parser_expect(parser, TOKEN_EQ);
-        AST *ast1 = malloc(sizeof(AST));
-        ast1->type = AST_NEQ;
-        ast1->data.expr.left = ast;
-        ast1->data.expr.right = parser_eat_expr(parser);
-        ret(ast1);
-    };
+    token = parser->tokens[parser->cur];
     if (token.type == TOKEN_DOT){
         AST *ast1 = malloc(sizeof(AST));
         ast1->type = AST_METADATA;
@@ -233,8 +324,16 @@ extr:
         parser_peek(parser);
         ast1->data.var.name = parser->tokens[parser->cur].value;
         parser_peek(parser);
-        ret(ast1);
     };
+    token = parser->tokens[parser->cur];
+    if (token.type == TOKEN_PLUS){
+        parser_peek(parser);
+        AST *ast1 = malloc(sizeof(AST));
+        ast1->type = AST_PLUS;
+        ast1->data.expr.left = ast;
+        ast1->data.expr.right = parser_eat_expr(parser);
+    }
+    token = parser->tokens[parser->cur];
     if (token.type == TOKEN_GT){
         parser_peek(parser);
         AST *ast1 = malloc(sizeof(AST));
@@ -247,6 +346,7 @@ extr:
         ast1->data.expr.right = parser_eat_expr(parser);
         ret(ast1);
     };
+    token = parser->tokens[parser->cur];
     if (token.type == TOKEN_LT){
         parser_peek(parser);
         AST *ast1 = malloc(sizeof(AST));
@@ -259,6 +359,7 @@ extr:
         ast1->data.expr.right = parser_eat_expr(parser);
         ret(ast1);
     };
+    token = parser->tokens[parser->cur];
     if (token.type == TOKEN_COMMA){
         parser_peek(parser);
         AST *ast1 = malloc(sizeof(AST));
@@ -276,41 +377,22 @@ extr:
             if (token.type != TOKEN_COMMA) break;
             parser_peek(parser);
         };
-        ret(ast1);
     }
-    if (token.type == TOKEN_PLUS){
+    token = parser->tokens[parser->cur];
+
+    if (token.type == TOKEN_EXC){
         parser_peek(parser);
+        parser_expect(parser, TOKEN_EQ);
         AST *ast1 = malloc(sizeof(AST));
-        ast1->type = AST_PLUS;
+        ast1->type = AST_NEQ;
         ast1->data.expr.left = ast;
         ast1->data.expr.right = parser_eat_expr(parser);
         ret(ast1);
-    }
+    };
     ret(ast);
 };
 
-char *parser_label(Parser *parser){
-    Token token = parser->tokens[parser->cur];
-    if (string_compare(token.value, "label", strlen(token.value)) == 0){
-        parser_peek(parser);
-        char string[100];
-        token = parser->tokens[parser->cur];
-        snprintf(string, 100, ".%s", token.value);
-        parser_peek(parser);
-        return strdup(string);
-    }else if (string_compare(token.value, "labelend", strlen(token.value)) == 0){
-        parser_peek(parser);
-        char string[100];
-        token = parser->tokens[parser->cur];
-        snprintf(string, 100, ".%s_end", token.value);
-        parser_peek(parser);
-        return strdup(string);
-    }else {
-        token = parser->tokens[parser->cur];
-        parser_peek(parser);
-        return strdup(token.value);
-    };
-}
+
 
 AST *parser_parse_lhs(Parser *parser){
     Token token = parser->tokens[parser->cur];
@@ -326,24 +408,30 @@ AST *parser_parse_lhs(Parser *parser){
             ast->type = AST_DEREF;
             ast->data.expr.left = parser_eat_expr(parser);
             parser_expect(parser, TOKEN_RBRACKET);
-            ret(ast);
         } else {
             if (is_reg(token.value) == 0){
                 ast->type = AST_REG;
+                ast->data.operation.reg = reg_to_num(parser);
             }else {
                 ast->type = AST_VAR;
+                ast->data.text.value = strdup(token.value);
+                parser_peek(parser);
             };
-            ast->data.text.value = strdup(token.value);
-            parser_peek(parser);
-            ret(ast);
         }
     }else if(token.type == TOKEN_AMP){
         ast->typeinfo = (AST_TypeInfo)8;
         ast->type = AST_REF;
         parser_peek(parser);
         ast->data.expr.left = parser_eat_expr(parser);
-        ret(ast);
     }
+
+    token = parser->tokens[parser->cur];
+    if (token.type == TOKEN_COLON){
+        parser_peek(parser);
+        token = parser->tokens[parser->cur];
+        parser_expect(parser, TOKEN_ID);
+        ast->typeinfo = name_to_size(token.value);
+    };
     
     ret(ast);
 }
@@ -352,11 +440,11 @@ AST *parser_eat_ast(Parser *parser){
     Token token = parser->tokens[parser->cur];
     Token orig = parser->tokens[parser->cur];
     AST *ast = malloc(sizeof(AST));
-    if (orig.type == TOKEN_EXC) exit(0);
     if (token.type == TOKEN_ID){
-        if (string_compare(token.value, "syscall", 7) == 0){
-            ast->type = AST_SYSCALL;
-            parser_peek(parser);
+        if(strcmp(token.value, "call") == 0){
+            parser_eat_call(parser, ast);
+        }else if (string_compare(token.value, "syscall", 7) == 0){
+            parser_eat_syscall(parser, ast);
         }else if(string_compare(token.value, "jump", 4) == 0){
             ast->type = AST_JMP;
             parser_peek(parser);
@@ -379,56 +467,37 @@ AST *parser_eat_ast(Parser *parser){
             ast->type = AST_ADD;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
         }else if(string_compare(token.value, "sub", 3) == 0){
             ast->type = AST_SUB;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
         }else if(string_compare(token.value, "mul", 3) == 0){
             ast->type = AST_MUL;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
         }else if(string_compare(token.value, "div", 3) == 0){
             ast->type = AST_DIV;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
         }else if(string_compare(token.value, "mod", 3) == 0){
             ast->type = AST_MOD;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
-        }else if(string_compare(token.value, "call", 4) == 0){
-            ast->type = AST_CALL;
-            parser_peek(parser);
-            ast->data.jmpif.label = parser_label(parser);
-            token = parser->tokens[parser->cur];
-            if (string_compare(token.value, "if", 2) == 0){
-                ast->type = AST_CALLIF;
-                parser_peek(parser);
-                ast->data.jmpif.reg = parser_eat_expr(parser);
-            }else if (string_compare(token.value, "ifnot", 5) == 0){
-                ast->type = AST_CALLIFN;
-                parser_peek(parser);
-                ast->data.jmpif.reg = parser_eat_expr(parser);
-            }
         }else if(string_compare(token.value, "push", 4) == 0){
             ast->type = AST_PUSH;
             parser_peek(parser);
@@ -437,8 +506,7 @@ AST *parser_eat_ast(Parser *parser){
             ast->type = AST_POP;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
-            ast->data.operation.reg = reg_to_num(token.value);
-            parser_peek(parser);
+            ast->data.operation.reg = reg_to_num(parser);
         }else if(string_compare(token.value, "ret", 3) == 0){
             ast->type = AST_RET;
             parser_peek(parser);

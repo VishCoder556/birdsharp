@@ -1,43 +1,28 @@
 #!include "std.bsh"
-
-
-int main(long argc, char **argv){
-    // char *c = cast(char*, malloc(cast(long, 10)))
-    // c[0] = 'H'
-    // c[1] = 'i'
-    // c[2] = cast(char, 10)
-    // c[3] = cast(char, 0)
-    // print(c)
-    long i = cast(long, 0)
-    while (i < argc){
-        print("Argument #")
-        print(int_to_string(cast(int, i)))
-        print(": ");
-        print(argv[i])
-        print("\n")
-        if (strcmp(argv[i], "read") == 1){
-            i = i + cast(long, 1);
-            int fd = open(argv[i], 0, 0);
-            if (fd == 0){
-                exit(-1)
-            }
-            char *str = cast(char*, malloc(cast(long, 100)));
-            read(fd, str, 100);
-            close(fd);
-            print(str);
-        }
-        if (strcmp(argv[i], "write") == 1){
-            i = i + cast(long, 1);
-            int fd = open(argv[i], 578, 420);
-            if (fd < 0){
-                exit(-1)
-            }
-            write(fd, "Hello!\n")
-            close(fd);
-        }
-
-        i = i + cast(long, 1)
+long fibonacci(long n) {
+    if (n < 2) {
+        return n
     }
-    exit(0)
-    return 0
+    long a = 0;
+    long b = 1;
+    long i = 2;
+    long temp = 0;
+    
+    while (i <= n) {
+        temp = a + b;
+        a = b;
+        b = temp;
+        i = i + 1;
+    }
+    return b;
+}
+
+
+int main(long argc, char **argv) {
+    int[10] a
+    a[0] = 5
+    a[1] = 10
+    a[2] = 15
+    exit((a[0] + a[1] * a[2]))
+    return 0;
 }

@@ -42,5 +42,6 @@ enum TokenType {
     TOKEN_AMP,
     TOKEN_DOT,
     TOKEN_FLOAT,
-    TOKEN_PIPE
+    TOKEN_PIPE,
+    TOKEN_COLON
 };

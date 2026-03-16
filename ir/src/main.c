@@ -16,8 +16,10 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <assert.h>
 #include "include/tokenizer.h"
 
+#define REGISTERS 32
 typedef struct {
     int reg;
     short size;
@@ -26,10 +28,11 @@ typedef struct {
 #include "include/parser.h"
 
 typedef enum {
-    TARGET_MACOS,
-    TARGET_LINUX,
+    TARGET_X86_64,
+    TARGET_ARM64,
     TARGET_WINDOWS,
     TARGET_WASM,
+    TARGET_LINUX,
     TARGET_UNKNOWN
 }TargetFormat;
 
@@ -37,7 +40,7 @@ typedef enum {
     TargetFormat target = TARGET_WINDOWS;
     target = TARGET_WINDOWS;
 #elif __APPLE__
-    TargetFormat target = TARGET_MACOS;
+    TargetFormat target = TARGET_X86_64;
 #elif __linux__
     TargetFormat target = TARGET_LINUX;
 #else
@@ -46,7 +49,6 @@ typedef enum {
 
 #include "include/reviser.h"
 #include "include/compiler.h"
-#include "include/wasm.h"
 #include "include/simulator.h"
 
 // Utilities:
@@ -106,8 +108,8 @@ void warning_generate_parser(char *type, char *name, int l, int c, char *f){
 #include "parser.c"
 #include "reviser.c"
 #include "compiler.c"
-#include "simulator.c"
-#include "wasm.c"
+#include "x86_64.c"
+#include "arm.c"
 
 
 typedef enum {
@@ -131,10 +133,10 @@ int main(int argc, char **argv){
         }
         if (string_compare(*argv, "-target", strlen(*argv)) == 0){
             argv++;
-            if (string_compare(*argv, "macos-x64", string_len(*argv)) == 0){
-                target = TARGET_MACOS;
-            }else if (string_compare(*argv, "linux-x64", string_len(*argv)) == 0){
-                target = TARGET_LINUX;
+            if (string_compare(*argv, "x86_64", string_len(*argv)) == 0){
+                target = TARGET_X86_64;
+            }else if (string_compare(*argv, "arm64", string_len(*argv)) == 0){
+                target = TARGET_ARM64;
             }else if (string_compare(*argv, "windows-x64", string_len(*argv)) == 0){
                 target = TARGET_WINDOWS;
             }else if (string_compare(*argv, "wasm", string_len(*argv)) == 0){
@@ -164,6 +166,7 @@ int main(int argc, char **argv){
     Reviser *reviser = reviser_init(parser);
     while (reviser_spy(reviser) != -1){
     };
+
     current_ast = NULL;
     reviser->cur = 0;
     reviser->global->functionlen = 0;
@@ -172,22 +175,17 @@ int main(int argc, char **argv){
 
 
     if (mode == MODE_ASM){
-        Compiler *compiler = compiler_init(reviser, output_file);
-        while (compiler_eat(compiler) != -1){
+    if (target == TARGET_ARM64){
+        Compiler *compiler = arm64_init(reviser, output_file);
+        while (arm64_eat(compiler) != -1){
         };
-        compiler_close(compiler);
-    }else if(mode == MODE_WASM){
-        Wasm *wasm = wasm_init(reviser, output_file);
-        while (wasm_eat(wasm) != -1){
+        arm64_close(compiler);
+    }else if(target == TARGET_X86_64){
+        Compiler *compiler = x86_64_init(reviser, output_file);
+        while (x86_64_eat(compiler) != -1){
         };
-        wasm_close(wasm);
-    }else if(mode == MODE_SIMULATE){
-        Simulator *simulator = simulator_init(reviser, output_file);
-        while (simulator_eat(simulator) != -1){
-        };
-        for (int i=0; i<14; i++){
-            printf("Reg %d: %d\n", i, (((int*)simulator->regs)[i]));
-        };
+        x86_64_close(compiler);
+    }
     }
 
     return 0;

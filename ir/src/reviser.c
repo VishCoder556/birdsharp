@@ -1,3 +1,11 @@
+typedef struct {
+    AST *value;
+    AST *lastmention;
+    bool known;
+}Register;
+Register registers[REGISTERS];
+
+
 Reviser *reviser_init(Parser *parser){
     Reviser *reviser = malloc(sizeof(Reviser));
     reviser->name = parser->name;
@@ -10,13 +18,12 @@ Reviser *reviser_init(Parser *parser){
     reviser->global->scope.variables = malloc(sizeof(Reviser_Variable));
     reviser->global->scope.variablelen = 0;
     reviser->code = parser->code;
-    reviser->regs = malloc(sizeof(Reviser_VirtualReg) * REVISER_REGISTERS);
-    for (int i=0; i<REVISER_REGISTERS; i++){
-        reviser->regs[i].reg = (AST_Reg){i, 8};
-        reviser->regs[i].credits = 0;
-        reviser->regs[i].firstmention = 0;
-        reviser->regs[i].lastmention = 0;
-    };
+
+    for (int i=0; i<REGISTERS; i++){
+        registers[i].known = 1;
+        registers[i].value = NULL;
+        registers[i].lastmention = NULL;
+    }
     return reviser;
 }
 
@@ -39,8 +46,7 @@ AST_TypeInfo reviser_get_lhs_size(AST ast){
         if (lhs->type == AST_REF){
             return 8;
         }else if(lhs->type == AST_REG){
-            AST_Reg reg = reg_to_num(strdup(lhs->data.text.value));
-            return (AST_TypeInfo)reg.size;
+            return ast.data.operation.reg.size;
         };
     }
     if (ast.data.opexpr.reg.size != 0){
@@ -116,10 +122,7 @@ void revise_var(Reviser *reviser, AST *ast, char *name){
         if (str == NULL){
             error_generate_reviser(reviser, "VariableError", "Variable has no value", ast);
         }
-        int name1 = strlen(name);
-        int str1 = strlen(str);
-        int len = name1 > str1 ? name1 : str1;
-        if (string_compare(str, name, len) == 0){
+        if (strcmp(str, name) == 0){
             if (var->definition->type == AST_CONST){
                 *ast = *var->definition->data.var.value;
             }
@@ -129,6 +132,12 @@ void revise_var(Reviser *reviser, AST *ast, char *name){
     };
     Reviser_Scope functionscope = reviser_get_function(reviser->global->functions, reviser->global->functionlen-1)->scope;
     int off = 0;
+    switch (target){
+        case TARGET_ARM64: break;
+        case TARGET_X86_64: off = 150; break;
+        case TARGET_LINUX: break;
+        default: break;
+    }
     for (int i=0; i<functionscope.variablelen; i++){
         Reviser_Variable *var = reviser_get_variable(functionscope.variables, i);
         char *str = var->name;
@@ -136,7 +145,7 @@ void revise_var(Reviser *reviser, AST *ast, char *name){
         int name1 = strlen(name);
         int str1 = strlen(str);
         int len = name1 > str1 ? name1 : str1;
-        if (string_compare(str, name, strlen(name)) == 0){
+        if (strcmp(str, name) == 0){
             ast->data.var.offset = off + var->definition->typeinfo;
             return;
         };
@@ -181,55 +190,7 @@ void reviser_eat_expr(Reviser *reviser, AST *ast){
                 };
             };
         }else if(ast->data.var.value->type == AST_VAR){
-            char *str = ast->data.var.value->data.text.value;
-            if (string_compare(str, "syscall", strlen(str)) == 0){
-                char *name = ast->data.var.name;
-                ;
-                if (string_compare(name, "write", strlen(name)) == 0){
-                    ast->type = AST_INT;
-                    switch (target){
-                        case TARGET_MACOS: ast->data.text.value = "33554436"; break;
-                        case TARGET_LINUX: ast->data.text.value = "1"; break;
-                        default: break;
-                    }
-                }else if (string_compare(name, "exit", strlen(name)) == 0){
-                    ast->type = AST_INT;
-                    switch (target){
-                        case TARGET_MACOS: ast->data.text.value = "33554433"; break;
-                        case TARGET_LINUX: ast->data.text.value = "60"; break;
-                        default: break;
-                    }
-                }else if (string_compare(name, "mmap", strlen(name)) == 0){
-                    ast->type = AST_INT;
-                    switch (target){
-                        case TARGET_MACOS: ast->data.text.value = "33554629"; break;
-                        case TARGET_LINUX: ast->data.text.value = "9"; break;
-                        default: break;
-                    }
-                } else if (string_compare(name, "read", strlen(name)) == 0) {
-                    ast->type = AST_INT;
-                    switch (target) {
-                        case TARGET_MACOS: ast->data.text.value = "33554435"; break;
-                        case TARGET_LINUX: ast->data.text.value = "0"; break;
-                        default: break;
-                    }
-                } else if (string_compare(name, "open", strlen(name)) == 0) {
-                    ast->type = AST_INT;
-                    switch (target) {
-                        case TARGET_MACOS: ast->data.text.value = "33554437"; break;
-                        case TARGET_LINUX: ast->data.text.value = "2"; break;
-                        default: break;
-                    }
-                } else if (string_compare(name, "close", strlen(name)) == 0) {
-                    ast->type = AST_INT;
-                    switch (target) {
-                        case TARGET_MACOS: ast->data.text.value = "33554438"; break;
-                        case TARGET_LINUX: ast->data.text.value = "3"; break;
-                        default: break;
-                    }
-                }
 
-            };
         };
 
     }else if (ast->type == AST_EQ){
@@ -261,13 +222,53 @@ void reviser_eat_expr(Reviser *reviser, AST *ast){
         reviser_eat_expr(reviser, ast->data.expr.right);
         reviser_eat_expr(reviser, ast->data.expr.left);
     }else if(ast->type == AST_REG){
-        AST_Reg reg = reg_to_num(ast->data.text.value);
-        ast->typeinfo = reg.size;
+        ast->typeinfo = ast->data.operation.reg.size;
     }
 };
 
+Register check_register(Reviser *reviser, AST_Reg reg){
+    if (reg.reg <= REGISTERS){
+        Register r = registers[reg.reg];
+        if (r.value != NULL){
+            if (r.value->type == AST_REG){
+                return check_register(reviser, r.value->data.operation.reg);
+            }
+            return r;
+        }
+        // printf("Register: %s, Known: %d\n", regs[reg.reg], r.known);
+    };
+    return (Register){NULL, NULL, -1};
+}
 
-void reviser_eat_lhs(Reviser *reviser, AST *ast){
+AST *reviser_expand(Reviser *reviser, AST *ast){
+    if (ast->type == AST_REG){
+        AST *value = check_register(reviser, ast->data.operation.reg).value;
+        if (value != NULL){
+            return reviser_expand(reviser, value);
+        }
+    }
+    return ast;
+};
+Register find_register(Reviser *reviser, AST *ast){
+    if (ast->type == AST_REG){
+        return check_register(reviser, ast->data.operation.reg);
+    }
+    return (Register){NULL, NULL, -1};
+}
+void set_register(Reviser *reviser, AST_Reg reg, AST *value, bool known){
+    if (reg.reg <= REGISTERS && reg.reg > 0){
+        registers[reg.reg].lastmention = value;
+        if (value != NULL){
+            registers[reg.reg].value = reviser_expand(reviser, value->data.opexpr.right);
+        }else {
+            registers[reg.reg].value = NULL;
+        }
+    }
+}
+
+
+void reviser_eat_lhs(Reviser *reviser, AST *_ast){
+    AST *ast = _ast->data.opexpr.left;
     if (ast->type == AST_VAR){
         revise_var(reviser, ast, ast->data.var.name);
     }else if (ast->type == AST_DEREF){
@@ -275,23 +276,152 @@ void reviser_eat_lhs(Reviser *reviser, AST *ast){
     }else if (ast->type == AST_REF){
         reviser_eat_expr(reviser, ast->data.expr.left);
     }else if(ast->type == AST_REG){
-        AST_Reg reg = reg_to_num(ast->data.text.value);
-        ast->typeinfo = reg.size;
+        ast->typeinfo = ast->data.operation.reg.size;
+        set_register(reviser, ast->data.operation.reg, _ast, 1);
     }
 }
 
+bool is_immediate_value(AST *ast){
+    if (ast->type == AST_INT || ast->type == AST_CHAR){
+        return 1;
+    }else {
+        return 0;
+    };
+}
+
+bool reviser_is_immediate(Reviser *reviser, AST *ast){
+    if (ast->type == AST_INT || ast->type == AST_CHAR){
+        return 1;
+    };
+    if (ast->type == AST_REG){
+        AST *value = check_register(reviser, ast->data.operation.reg).value;
+        if (reviser_is_immediate(reviser, value)){
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
 void reviser_eat_ast(Reviser *reviser, AST *ast);
+void reviser_constant_fold(Reviser *reviser, AST *ast){
+    Register reg = check_register(reviser, ast->data.operation.reg);
+    AST *value = reg.value;
+    AST *right = ast->data.operation.right;
+    Register reg_right = find_register(reviser, right);
+    if (value == NULL){
+        return;
+    }
+    if (reviser_is_immediate(reviser, value) && reviser_is_immediate(reviser, right)){
+        right = reviser_expand(reviser, right);
+        int r = atoi(right->data.text.value);
+        int l = atoi(value->data.text.value);
+        char string[100];
+        if (ast->type == AST_ADD){
+            snprintf(string, 100, "%d", l + r);
+        }else if (ast->type == AST_SUB){
+            snprintf(string, 100, "%d", l - r);
+        }else if (ast->type == AST_MUL){
+            snprintf(string, 100, "%d", l * r);
+        }else if (ast->type == AST_DIV){
+            snprintf(string, 100, "%d", l / r);
+        }
+        AST *inner = malloc(sizeof(AST));
+        inner->data.text.value = strdup(string);
+        inner->type = AST_INT;
+        AST oldast = *ast;
+        ast->type = AST_MOV;
+        ast->data.opexpr.left->type = AST_REG;
+        ast->data.opexpr.left->data.operation.reg = oldast.data.operation.reg;
+        ast->data.opexpr.right = inner;
+        reg.lastmention->type = AST_NOP;
+        if (reg_right.lastmention != NULL){
+            reg_right.lastmention->type = AST_NOP;
+        }
+        set_register(reviser, ast->data.operation.reg, ast, 0);
+        reviser_eat_ast(reviser, ast);
+    }else {
+        set_register(reviser, ast->data.operation.reg, NULL, 0);
+    }
+}
+
+void reviser_equal_fold(Reviser *reviser, AST *ast){
+    AST *left = reviser_expand(reviser, ast->data.opexpr.left);
+    Register reg_left = find_register(reviser, left);
+    AST *right = reviser_expand(reviser, ast->data.opexpr.right);
+    Register reg_right = find_register(reviser, ast->data.opexpr.right);
+    if (is_immediate_value(right)){
+        ast->data.opexpr.right = right;
+        if (reg_right.lastmention != NULL)
+            reg_right.lastmention->type = AST_NOP;
+        set_register(reviser, left->data.operation.reg, ast, 1);
+    }else {
+        set_register(reviser, left->data.operation.reg, NULL, 0);
+    };
+};
+
 void reviser_eat_ast(Reviser *reviser, AST *ast){
     if (ast->type == AST_MOV){
         if (ast->data.opexpr.left != NULL){
-            reviser_eat_lhs(reviser, ast->data.opexpr.left);
+            reviser_eat_lhs(reviser, ast);
         }
         ast->typeinfo = reviser_get_lhs_size(*ast);
         if (ast->typeinfo == 0){
             ast->typeinfo = ast->data.opexpr.right->typeinfo;
         }
         reviser_eat_expr(reviser, ast->data.opexpr.right);
+        reviser_equal_fold(reviser, ast);
     }else if(ast->type == AST_SYSCALL){
+        set_register(reviser, _reg_to_num("v0", 8), NULL, 0);
+        for (int i = 0; i < REGISTERS; i++) {
+            set_register(reviser, (AST_Reg){i, 8}, NULL, 0);
+        }
+        char *name = strdup(ast->data.text.value);
+        char *res = "";
+        if (string_compare(name, "write", strlen(name)) == 0){
+            switch (target){
+                case TARGET_ARM64: res = "33554436"; break;
+                case TARGET_X86_64: res = "33554436"; break;
+                case TARGET_LINUX: res = "1"; break;
+                default: break;
+            }
+        }else if (string_compare(name, "exit", strlen(name)) == 0){
+            switch (target){
+                case TARGET_X86_64: res = "33554433"; break;
+                case TARGET_ARM64: res = "33554433"; break;
+                case TARGET_LINUX: res = "60"; break;
+                default: break;
+            }
+        }else if (string_compare(name, "mmap", strlen(name)) == 0){
+            switch (target){
+                case TARGET_ARM64: res = "33554629"; break;
+                case TARGET_X86_64: res = "33554629"; break;
+                case TARGET_LINUX: res = "9"; break;
+                default: break;
+            }
+        } else if (string_compare(name, "read", strlen(name)) == 0) {
+            switch (target) {
+                case TARGET_ARM64: res = "33554435"; break;
+                case TARGET_X86_64: res = "33554435"; break;
+                case TARGET_LINUX: res = "0"; break;
+                default: break;
+            }
+        } else if (string_compare(name, "open", strlen(name)) == 0) {
+            switch (target) {
+                case TARGET_ARM64: res = "33554437"; break;
+                case TARGET_X86_64: res = "33554437"; break;
+                case TARGET_LINUX: res = "2"; break;
+                default: break;
+            }
+        } else if (string_compare(name, "close", strlen(name)) == 0) {
+            switch (target) {
+                case TARGET_ARM64: res = "33554438"; break;
+                case TARGET_X86_64: res = "33554438"; break;
+                case TARGET_LINUX: res = "3"; break;
+                default: break;
+            }
+        }
+        ast->data.text.value = res;
     }else if(ast->type == AST_RET){
     }else if(ast->type == AST_PUSH){
         reviser_eat_expr(reviser, ast->data.operation.right);
@@ -301,18 +431,34 @@ void reviser_eat_ast(Reviser *reviser, AST *ast){
         reviser_eat_expr(reviser, ast->data.expr.left);
     }else if(ast->type == AST_POP){
     }else if(ast->type == AST_CALL){
+        set_register(reviser, _reg_to_num("v0", 8), NULL, 0);
+        for (int i = 0; i < REGISTERS; i++) {
+            set_register(reviser, (AST_Reg){i, 8}, NULL, 0);
+        }
     }else if(ast->type == AST_CALLIF){
+        set_register(reviser, _reg_to_num("v0", 8), NULL, 0);
+        for (int i = 0; i < REGISTERS; i++) {
+            set_register(reviser, (AST_Reg){i, 8}, NULL, 0);
+        }
         reviser_eat_expr(reviser, ast->data.jmpif.reg);
     }else if(ast->type == AST_CALLIFN){
+        set_register(reviser, _reg_to_num("v0", 8), NULL, 0);
+        for (int i = 0; i < REGISTERS; i++) {
+            set_register(reviser, (AST_Reg){i, 8}, NULL, 0);
+        }
         reviser_eat_expr(reviser, ast->data.jmpif.reg);
     }else if(ast->type == AST_ADD){
         reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
     }else if(ast->type == AST_SUB){
         reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
     }else if(ast->type == AST_MUL){
         reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
     }else if(ast->type == AST_DIV){
         reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
     }else if(ast->type == AST_JMP){
     }else if(ast->type == AST_JMPIF){
         reviser_eat_expr(reviser, ast->data.jmpif.reg);
@@ -335,6 +481,9 @@ void reviser_eat_body(Reviser *reviser){
     if (ast->type == AST_FUNCDEF){
         AST *current = ast->data.funcdef.block;
         reviser->global->functionlen++;
+        for (int i = 0; i < REGISTERS; i++) {
+            set_register(reviser, (AST_Reg){i, 8}, NULL, 0);
+        }
         while (current != NULL) {
             reviser_eat_ast(reviser, current);
             current = current->next;
