@@ -23,6 +23,9 @@ int main(long argc, char **argv) {
     a[0] = 5
     a[1] = 10
     a[2] = 15
+    print("Fibonacci(10) = ")
+    print(long_to_string(fibonacci(10)))
+    print("\n")
     exit(a[0] + a[1] * a[2])
     return 0;
 }
