@@ -42,6 +42,28 @@ int fibonacci(int n) {
 ```
 * Note that there are no for loops; they aren't implemented yet *
 
+### 3. Modes
+Modes are probably one of BirdSharp's greatest features, and also one of its most unique ones. Modes are the only features in BirdSharp that don't execute as exactly what is being told of it. There are many types of modes:
+    1. Preprocessor Modes (i.e. #!include)
+        These change the tokens from the tokenizer, changing the output of all succeeding stages.
+    2. Parsing Modes (#!flat or #!autovar)
+        These modes change how something is parsed. For example, `autovar on` allows 'a = 5' instead of having to do 'int a = 5'. This is something that happens while everything is being parsed to an AST.
+    3. Typechecking / Revising Modes (NONE EXIST YET)
+        These modes modify small additional details about ASTs. This includes optimizations. However, optimizations are currently built-in to BirdSharp without any modes to change them.
+    4. Compiling (NONE EXIST YET)
+        These modes worry about how an object will be compiled into its executable. `#!extern` is a compiling mode because the only thing it changes is the output of the file.
+
+This sample is an example of both preprocessor and parsing modes, the only modes that currently exist in BirdSharp:
+```c
+#!include "std.bsh"
+
+#!flat
+#!autovar on
+print("Hello World\n")
+return 0
+```
+
+
 
 ## Getting Started
 - Build the executables: BirdSharp is rather easy to compile, as it is meant to be a developer friendly project. You can simply run *build.sh* to get the bs and irc executables, or even run *run.sh* to build it and run the code in the code/ folder.
@@ -72,4 +94,6 @@ int fibonacci(int n) {
 ## Possible Improvements
 I am open to possible contributions and ways to improve BirdSharp further, because it still has a bunch of problems. These are some examples of things that need to be added or improved.
 - [ ] For Loops
-- [ ] IR Optimizations: Dead-code elimination and constant-folding
+- [ ] Support for more platforms
+- [ ] Cleaner codebase
+- [ ] More modes
