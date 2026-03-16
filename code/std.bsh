@@ -4,7 +4,7 @@ int STDOUT = 1
 int STDERR = 2
 
 int string_len(char *a){
-    int i = hi(5)
+    int i = 0
     while (a[i] != 0) {
         i = i + 1
     }

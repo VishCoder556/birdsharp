@@ -110,14 +110,14 @@ TC_Variable find_variable_in_scopes(Typechecker *typechecker, AST *_ast, int *p,
     return (TC_Variable){0};
 }
 
-Typechecker *typechecker_init(Parser *parser){
-    Typechecker *typechecker = malloc(sizeof(Typechecker));
+Typechecker *typechecker_init(Parser *parser) {
+    Typechecker *typechecker = arena_alloc(&arena, sizeof(Typechecker));
     typechecker->asts = parser->asts;
     typechecker->astlen = parser->astlen;
     typechecker->name = parser->name;
     typechecker->cur = 0;
     typechecker->iter = parser->asts;
-    typechecker->functions = malloc(sizeof(TC_Func) * 100);
+    typechecker->functions = arena_alloc(&arena, sizeof(TC_Func) * 100);
     for (int i = 0; i < 100; i++) {
         typechecker->functions[i].name = NULL;
         typechecker->functions[i].args = NULL;
@@ -126,11 +126,10 @@ Typechecker *typechecker_init(Parser *parser){
         typechecker->functions[i].scope.variablelen = 0;
     }
     typechecker->functionlen = 0;
-    TC_Scope scope = initialize_scope();
-    global_scope = malloc(sizeof(TC_Scope));
-    *global_scope = scope;
+    global_scope = arena_alloc(&arena, sizeof(TC_Scope));
+    *global_scope = initialize_scope();
     return typechecker;
-};
+}
 
 char *externs[100];
 int externlen = 0;

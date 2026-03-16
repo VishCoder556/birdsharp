@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-char *IrData = "";
+String_Builder IrData = {0};
 int tempN = 0;
 
 typedef struct {
@@ -74,8 +74,6 @@ void ir_free_reg(char *reg){
 };
 
 void ir_init(void *generator){
-    IrData = malloc(5000);
-    strncpy(IrData, "", 100);
     Generator *gen = (Generator*)generator;
 
     for (int i=0; i<REGISTERS; i++){
@@ -316,20 +314,20 @@ char *ir_generate_expr(void *generator, AST ast){
         snprintf(string, 100, "%d", tempN++);
         generator_write_text(generator, strdup(string));
         generator_write_text(generator, "\n");
-        strcat(IrData, "%i8 temp_");
-        strcat(IrData, strdup(string));
-        strcat(IrData, " = \"");
+        arena_sb_append_cstr(&arena, &IrData, "%i8 temp_");
+        arena_sb_append_cstr(&arena, &IrData, strdup(string));
+        arena_sb_append_cstr(&arena, &IrData, " = \"");
         for (int i=0; i<strlen(ast.data.arg.value); i++){
             if (ast.data.arg.value[i] == '\n'){
-                strcat(IrData, "\\n");
+                arena_sb_append_cstr(&arena, &IrData, "\\n");
             }else {
                 char str[2];
                 str[0] = ast.data.arg.value[i];
                 str[1] = '\0';
-                strcat(IrData, strdup(str));
+                arena_sb_append_cstr(&arena, &IrData, strdup(str));
             };
         }
-        strcat(IrData, "\"\n");
+        arena_sb_append_cstr(&arena, &IrData, "\"\n");
         return reg;
     }else if(ast.type == AST_FUNCALL){
         for (int i=ast.data.funcall.argslen; i > 0; i--){
@@ -679,13 +677,13 @@ void ir_generate_ast(void *generator, AST ast){
         };
         generator_write_text(generator, "}\n");
     }else if (ast.type == AST_ASSIGN){
-        strcat(IrData, "%");
-        strcat(IrData, type_to_selector(ast.typeinfo));
-        strcat(IrData, " ");
-        strcat(IrData, ast.data.assign.from->data.arg.value);
-        strcat(IrData, " = ");
-        strcat(IrData, ir_generate_expr(generator, *ast.data.assign.assignto));
-        strcat(IrData, "\n");
+        arena_sb_append_cstr(&arena, &IrData, "%");
+        arena_sb_append_cstr(&arena, &IrData, type_to_selector(ast.typeinfo));
+        arena_sb_append_cstr(&arena, &IrData, " ");
+        arena_sb_append_cstr(&arena, &IrData, ast.data.assign.from->data.arg.value);
+        arena_sb_append_cstr(&arena, &IrData, " = ");
+        arena_sb_append_cstr(&arena, &IrData, ir_generate_expr(generator, *ast.data.assign.assignto));
+        arena_sb_append_cstr(&arena, &IrData, "\n");
     }else if(ast.type == AST_UNKNOWN){
 
     }else if(ast.type == AST_MODE){
@@ -698,6 +696,9 @@ void ir_generate_ast(void *generator, AST ast){
 };
 
 void ir_close(void *generator){
-    generator_write_text(generator, IrData);
+    arena_sb_append_null(&arena, &IrData);
+    generator_write_text(generator, IrData.items);
+    arena_reset(&arena);
+    arena_free(&arena);
     generator_close(generator);
-};
+}

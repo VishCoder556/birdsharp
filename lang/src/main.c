@@ -31,6 +31,18 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+
+// From https://github.com/tsoding/arena/
+
+#define ARENA_IMPLEMENTATION
+#include "arena.h"
+typedef struct {
+    char *items;
+    size_t count;
+    size_t capacity;
+} String_Builder;
+Arena arena = {0};
+
 char *HELP = 
 "Help for AprilScript\n\n"
 "-o: Specify the output file\n"
@@ -1585,44 +1597,54 @@ int main(int argc, char **argv){
         output_file = "main";
     };
 
-    if (!input_file){
+    if (!input_file || strcmp(input_file, "") == 0){
         printf("\x1b[1;31merror\x1b[0m: No input file provided");
         return -1;
     };
-    struct timespec __start, __end;
 
+    struct timespec __start, __end;
     clock_gettime(CLOCK_MONOTONIC, &__start);
 
-    Tokenizer *tokenizer = malloc(sizeof(Tokenizer));
+    arena_reset(&arena);
+
+    Tokenizer *tokenizer = arena_alloc(&arena, sizeof(Tokenizer));
     FILE *f = fopen(input_file, "r");
     if (f == NULL){
         printf("\x1b[1;31merror\x1b[0m: Invalid input file provided\n");
         return -1;
     }
+
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
     tokenizer->line = 1;
     tokenizer->name = input_file;
     tokenizer->col = 0;
-    tokenizer->code = malloc(90000);
-    size_t size = fread(tokenizer->code, 1, 90000, f);
+    tokenizer->code = arena_alloc(&arena, fsize + 1);
+    size_t size = fread(tokenizer->code, 1, fsize, f);
     tokenizer->code[size] = '\0';
+    
     source_files[num_source_files++] = (SourceFile){tokenizer->name, tokenizer->code, size};
     fclose(f);
+
     tokenizer->cur = 0;
-    tokenizer->tokens = malloc(sizeof(Token) * 9000);
+    tokenizer->tokens = arena_alloc(&arena, sizeof(Token) * 9000);
     tokenizer->tokenlen = 0;
 
-    while(tokenizer_token(tokenizer) != -1){
-    };
+    while(tokenizer_token(tokenizer) != -1){};
 
     clock_gettime(CLOCK_MONOTONIC, &__end);
     fprintf(stdout, "[INFO] Tokenizer process took %.4f milliseconds\n", (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6);
+    
     clock_gettime(CLOCK_MONOTONIC, &__start);
 
     preprocess(input_file, tokenizer);
 
     clock_gettime(CLOCK_MONOTONIC, &__end);
     fprintf(stdout, "[INFO] Preprocessor process took %.4f milliseconds\n", (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6);
-    Parser *parser = malloc(sizeof(Parser));
+
+    Parser *parser = arena_alloc(&arena, sizeof(Parser));
     parser->name = tokenizer->name;
     parser->asts = NULL;
     parser->ast_tail = NULL;
@@ -1631,9 +1653,11 @@ int main(int argc, char **argv){
     parser->tokens = tokenizer->tokens;
     parser->tokens[parser->cur].name = tokenizer->name;
     parser->tokenlen = tokenizer->tokenlen;
+
     while (parser_eat(parser) != -1){};
+
     if (_main == NULL){
-        _main = malloc(sizeof(AST));
+        _main = arena_alloc(&arena, sizeof(AST));
         if (top_level_len >= 1 && top_level != NULL){
             _main->row = top_level[0]->row;
             _main->col = top_level[0]->col;
@@ -1650,21 +1674,17 @@ int main(int argc, char **argv){
             parser->ast_tail = _main; 
             parser->astlen++;
         }
-    }else {
+    } else {
         int old_len = _main->data.funcdef.blocklen;
         int new_len = old_len + top_level_len;
 
-        AST **new_block = realloc(_main->data.funcdef.block, sizeof(AST*) * new_len);
-        if (new_block == NULL) {
-            perror("realloc");
-            exit(1);
-        }
-
+        AST **new_block = arena_realloc(&arena, _main->data.funcdef.block, sizeof(AST*) * old_len, sizeof(AST*) * new_len);
+        
         for (int i = 0; i < top_level_len; i++) {
             new_block[old_len + i] = top_level[i];
         }
         _main->data.funcdef.block = new_block;
-        _main->data.funcdef.blocklen += top_level_len;
+        _main->data.funcdef.blocklen = new_len;
     }
 
     clock_gettime(CLOCK_MONOTONIC, &__end);
@@ -1682,24 +1702,20 @@ int main(int argc, char **argv){
     clock_gettime(CLOCK_MONOTONIC, &__start);
     Generator *generator = generator_init(typechecker, _ir, ir);
     while (generator_eat_ast(generator) != -1){};
+    
     clock_gettime(CLOCK_MONOTONIC, &__end);
     fprintf(stdout, "[INFO] Transpiling process took %.4f milliseconds\n", (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6);
 
-    free(tokenizer->code);
-    free(tokenizer->tokens);
-    free(tokenizer);
-    free(generator);
-    free(parser);
-    free(typechecker);
 
-    char string[100];
-    // snprintf(string, 100, "bat %s", _ir);
-    // system(string);
-    snprintf(string, 100, "irc %s -target arm64 -o %s", _ir, output_file);
-    system(string);
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "irc %s -target arm64 -o %s", _ir, output_file);
+    system(cmd);
     remove(_ir);
-    fprintf(stdout, "[INFO] Program took %.4f milliseconds\n", (__end.tv_sec - __begin.tv_sec) * 1000.0 +
-                        (__end.tv_nsec - __begin.tv_nsec) / 1e6);
+
+    fprintf(stdout, "[INFO] Program took %.4f milliseconds\n", (__end.tv_sec - __begin.tv_sec) * 1000.0 + (__end.tv_nsec - __begin.tv_nsec) / 1e6);
+    
+    // Final cleanup
+    arena_free(&arena);
     
     return 0;
 }

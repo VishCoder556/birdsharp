@@ -130,10 +130,10 @@ void arm64_close(Compiler *compiler){
     fclose(compiler->f);
     char string[100];
     compiler->_o = find_available_tmp_file("o");
-    snprintf(string, 100, "bat %s", compiler->_asm);
-    system(string);
-    snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
-    system(string);
+    // snprintf(string, 100, "bat %s", compiler->_asm);
+    // system(string);
+    // snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
+    // system(string);
     snprintf(string, 100, "clang -arch arm64 -c %s -o %s", compiler->_asm, compiler->_o);
     system(string);
     remove(compiler->_asm);
