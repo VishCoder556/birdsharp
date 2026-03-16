@@ -13,7 +13,7 @@ void preprocess(char *main_file, Tokenizer *tokenizer){
                 Tokenizer *tokenizer2 = malloc(sizeof(Tokenizer));
                 FILE *f = fopen(input_file, "r");
                 tokenizer2->line = 1;
-                tokenizer2->name = input_file;
+                tokenizer2->name = strdup(input_file);
                 tokenizer2->col = 0;
                 tokenizer2->code = malloc(90000);
                 size_t size = fread(tokenizer2->code, 1, 90000, f);
@@ -38,7 +38,7 @@ void preprocess(char *main_file, Tokenizer *tokenizer){
                 );
 
                 for (int v=0; v<tokenizer2->tokenlen; v++){
-                    tokenizer->tokens[v].name = strdup(tokenizer->name);
+                    tokenizer->tokens[i + v].name = strdup(tokenizer->name);
                     tokenizer->tokens[i + v] = tokenizer2->tokens[v];
                 }
 

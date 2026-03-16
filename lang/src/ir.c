@@ -41,6 +41,7 @@ char *type_to_selector(AST_TypeInfo type){
         case 2: return "i16";
         case 4: return "i32";
         case 8: return "i64";
+        case 0: return "i64";
     }
     return "";
 }
@@ -171,34 +172,35 @@ char *r_based_on_size(char *reg, int type){
     if (strncmp(reg, "i32", 3) == 0){
         is_memory_access = true;
         base_reg = reg + 5;
+        base_reg[strlen(base_reg)-1] = '\0';
         while (*base_reg == ' ' || *base_reg == '[') base_reg++;
     }else if (strncmp(reg, "i16", 3) == 0){
         is_memory_access = true;
         base_reg = reg + 4;
+        base_reg[strlen(base_reg)-1] = '\0';
         while (*base_reg == ' ' || *base_reg == '[') base_reg++;
     }else if (strncmp(reg, "i8", 2) == 0){
         is_memory_access = true;
         base_reg = reg + 4;
+        base_reg[strlen(base_reg)-1] = '\0';
         while (*base_reg == ' ' || *base_reg == '[') base_reg++;
     }else if (strncmp(reg, "i64", 3) == 0){
         is_memory_access = true;
         base_reg = reg + 5;
+        base_reg[strlen(base_reg)-1] = '\0';
         while (*base_reg == ' ' || *base_reg == '[') base_reg++;
     }
     
-    if (is_memory_access) {
-        char out[100];
-        char *size_selector = len_to_selector(type);
-        
-        char *bracket_end = strchr(base_reg, ']');
-        if (bracket_end) {
-            int reg_name_len = bracket_end - base_reg;
-            snprintf(out, sizeof(out), "%s [%.*s]", size_selector, reg_name_len, base_reg);
-        } else {
-            snprintf(out, sizeof(out), "%s [%s]", size_selector, base_reg);
-        }
-        return strdup(out);
+if (is_memory_access) {
+    if (strchr(base_reg, '[')) {
+        return strdup(base_reg);
     }
+
+    char out[100];
+    char *size_selector = len_to_selector(type);
+    snprintf(out, sizeof(out), "%s [%s]", size_selector, base_reg);
+    return strdup(out);
+}
     
     if ((reg[0] == 'a' || reg[0] == 't' || reg[0] == 's' || reg[0] == 'v')) {
         char out[20];
@@ -255,7 +257,8 @@ char *move_imm(void *generator, char *str, char *reg, AST_TypeInfo typeinfo){
 };
 
 char *move(void *generator, AST ast, char *reg){
-    return move_imm(generator, ir_generate_expr(generator, ast), reg, ast.typeinfo);
+    char *a = move_imm(generator, ir_generate_expr(generator, ast), reg, ast.typeinfo);
+    return a;
 };
 
 #define bin_op(_t) \

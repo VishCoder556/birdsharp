@@ -84,14 +84,16 @@ TC_Variable find_variable_in_scopes(Typechecker *typechecker, AST *_ast, int *p,
         variable.type = fetch_type(typechecker, _ast);
         return variable;
     };
-    for (int i=0; i<current_scope->variablelen; i++){
-        if (strcmp(current_scope->variables[i].name, ast.data.arg.value) == 0){
-            if (p != NULL){
-                *p = 1;
-            }
-            return current_scope->variables[i];
+    if (current_scope != NULL){
+        for (int i=0; i<current_scope->variablelen; i++){
+            if (strcmp(current_scope->variables[i].name, ast.data.arg.value) == 0){
+                if (p != NULL){
+                    *p = 1;
+                }
+                return current_scope->variables[i];
+            };
         };
-    };
+    }
     for (int i=0; i<global_scope->variablelen; i++){
         if (strcmp(global_scope->variables[i].name, ast.data.arg.value) == 0){
             if (p != NULL){
@@ -276,11 +278,13 @@ int typeinfo_to_len(AST_TypeInfo type){
             return types[v].length;
         };
     };
-    for (int v=0; v<typesLen; v++){
-        if (strcmp(types[v].name, type.type) == 0){
-            return types[v].length;
+    if (type.type){
+        for (int v=0; v<typesLen; v++){
+            if (strcmp(types[v].name, type.type) == 0){
+                return types[v].length;
+            };
         };
-    };
+    }
 
     return 0;
 };
@@ -313,6 +317,7 @@ void typechecker_mode(Typechecker *typechecker, AST *ast){
 
 void typechecker_eat(Typechecker *typechecker, AST *ast){
     ast->typeinfo = fetch_type(typechecker, ast);
+
     if (ast->type == AST_FUNCDEF){
         AST_TypeInfo expected = ast->typeinfo;
         typechecker->functions[typechecker->functionlen].name = ast->data.funcdef.name;

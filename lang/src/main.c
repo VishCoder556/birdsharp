@@ -1693,7 +1693,9 @@ int main(int argc, char **argv){
     free(typechecker);
 
     char string[100];
-    snprintf(string, 100, "irc %s -o %s", _ir, output_file);
+    // snprintf(string, 100, "bat %s", _ir);
+    // system(string);
+    snprintf(string, 100, "irc %s -target arm64 -o %s", _ir, output_file);
     system(string);
     remove(_ir);
     fprintf(stdout, "[INFO] Program took %.4f milliseconds\n", (__end.tv_sec - __begin.tv_sec) * 1000.0 +

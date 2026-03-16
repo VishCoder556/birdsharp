@@ -130,10 +130,10 @@ void arm64_close(Compiler *compiler){
     fclose(compiler->f);
     char string[100];
     compiler->_o = find_available_tmp_file("o");
-    // snprintf(string, 100, "bat %s", compiler->_asm);
-    // system(string);
-    // snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
-    // system(string);
+    snprintf(string, 100, "bat %s", compiler->_asm);
+    system(string);
+    snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
+    system(string);
     snprintf(string, 100, "clang -arch arm64 -c %s -o %s", compiler->_asm, compiler->_o);
     system(string);
     remove(compiler->_asm);
@@ -145,6 +145,8 @@ void arm64_close(Compiler *compiler){
 
 char *arm64_format(char *str, int type){
     if (type != AST_STRING){
+        if (str[0] == '#')
+            return strdup(str + 1);
         return strdup(str);
     }
     char *out = malloc(100);
@@ -161,6 +163,7 @@ char *arm64_format(char *str, int type){
     out[b++] = '\\';
     out[b++] = '0';
     out[b++] = '\"';
+    out[b++] = '\0';
     return out;
 }
 
@@ -173,16 +176,17 @@ char *arm64_move(Compiler *compiler, char *reg, char *buf, int typeinfo) {
 
     char *final_reg = reg;
     char *final_buf = buf;
+    
     AST_Reg _reg = arm64_reg_real_to_num(reg);
     if (_reg.reg != -1) final_reg = arm64_change_reg_size(_reg.reg, typeinfo);
+    
     AST_Reg _buf = arm64_reg_real_to_num(buf);
     if (_buf.reg != -1) final_buf = arm64_change_reg_size(_buf.reg, typeinfo);
 
     if (strcmp(final_reg, final_buf) == 0) return final_reg;
 
-    char *scratch = (typeinfo <= 4) ? "w16" : "x16";
+    char *scratch = (typeinfo == 8) ? "x16" : "w16";
 
-    // Case: [mem] = [mem]
     if (reg_is_mem && buf_is_mem) {
         char *ld_op = (typeinfo == 1) ? "ldrb" : (typeinfo == 2) ? "ldrh" : "ldr";
         char *st_op = (typeinfo == 1) ? "strb" : (typeinfo == 2) ? "strh" : "str";
@@ -192,7 +196,7 @@ char *arm64_move(Compiler *compiler, char *reg, char *buf, int typeinfo) {
     }
 
     if (reg_is_mem && buf_is_imm) {
-        compiler_write_text_line(compiler, "ldr x16, =%s", (buf[0] == '#') ? buf + 1 : buf);
+        compiler_write_text_line(compiler, "ldr %s, =%s", (typeinfo == 8 ? "x16" : "w16"), (buf[0] == '#') ? buf + 1 : buf);
         char *st_op = (typeinfo == 1) ? "strb" : (typeinfo == 2) ? "strh" : "str";
         compiler_write_text_line(compiler, "%s %s, %s", st_op, scratch, reg);
         return reg;
@@ -397,10 +401,10 @@ char *arm64_eat_expr(Compiler *compiler, AST *ast, int size){
         arm64_move(compiler, "x11", left, ast->data.expr.left->typeinfo);
         compiler_write_text_line(compiler, "str x11, [sp, #-16]!");
         char *right = arm64_eat_expr(compiler, ast->data.expr.right, -1);
-        arm64_move(compiler, "x9", left, ast->data.expr.left->typeinfo);
+        arm64_move(compiler, "x9", right, ast->data.expr.right->typeinfo);
         compiler_write_text_line(compiler, "ldr x11, [sp], #16");
         compiler_write_text_line(compiler, "add x11, x11, x9");
-        return "x21";
+        return "x11";
     };
     return "";
 }
@@ -452,7 +456,7 @@ char *arm64_eat_lhs(Compiler *compiler, AST ast, int size){
             char *right1 = arm64_eat_expr(compiler, leftleft->data.expr.right, -1);
             snprintf(string, 100, "[%s, #%s]", left1, right1);
         }else {
-            if (buf[0] == '['){
+            if (strchr(buf, '[')){
                 snprintf(string, 100, "%s", buf);
             }else {
                 snprintf(string, 100, "[%s]", buf);
@@ -589,11 +593,11 @@ char *arm64_typeinfo_to_specifier(AST_TypeInfo type){
     if (type == 1){
         return ".ascii";
     }else if (type == 2){
-        return "dw";
+        return ".short";
     }else if (type == 8){
-        return "dq";
+        return ".quad";
     }else if (type == 4){
-        return "dd";
+        return ".long";
     }
 
     return "";

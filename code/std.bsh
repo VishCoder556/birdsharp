@@ -1,5 +1,10 @@
+int PROT_READ_WRITE = 3
+int MAP_PRIVATE_ANON = 4098
+int STDOUT = 1
+int STDERR = 2
+
 int string_len(char *a){
-    int i = 0
+    int i = hi(5)
     while (a[i] != 0) {
         i = i + 1
     }
@@ -29,17 +34,18 @@ int write(int fd, char *str){
 }
 
 int print(char *str){
-    syscall.write(1, str, string_len(str))
+    syscall.write(STDOUT, str, string_len(str))
     return 0
 }
 
 int printerr(char *str){
-    syscall.write(2, str, string_len(str))
+    syscall.write(STDERR, str, string_len(str))
     return 0
 }
 
+
 char *malloc(long size){
-    return cast(char*, syscall.mmap(0, size, 3, 4098, -1, 0))
+    return cast(char*, syscall.mmap(0, size, PROT_READ_WRITE, MAP_PRIVATE_ANON, -1, 0))
 }
 
 char *int_to_string(int num){
