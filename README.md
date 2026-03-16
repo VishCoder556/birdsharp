@@ -58,7 +58,7 @@ int fibonacci(int n) {
 ```sh
 ./lang/bs code/main.bsh
 ```
-- Running the output: BirdSharp delivers the executable into a res/main file by default. However, if the output file is specified, it will dump its result there instead. Hence, the output can easily be ran as such:
+- Running the output: BirdSharp delivers the executable into a 'main' file by default. However, if the output file is specified, it will dump its result there instead. Hence, the output can easily be ran as such:
 ```sh
 ./main
 ```
@@ -67,4 +67,3 @@ int fibonacci(int n) {
 I am open to possible contributions and ways to improve BirdSharp further, because it still has a bunch of problems. These are some examples of things that need to be added or improved.
 - [ ] For Loops
 - [ ] IR Optimizations: Dead-code elimination and constant-folding
-- [ ] Output Patch: Help solve the default res/ folder dependency
