@@ -23,6 +23,6 @@ int main(long argc, char **argv) {
     a[0] = 5
     a[1] = 10
     a[2] = 15
-    exit((a[0] + a[1] * a[2]))
+    exit(a[0] + a[1] * a[2])
     return 0;
 }
