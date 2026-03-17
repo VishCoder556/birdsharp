@@ -43,14 +43,6 @@ typedef struct {
 } String_Builder;
 Arena arena = {0};
 
-char *HELP = 
-"Help for AprilScript\n\n"
-"-o: Specify the output file\n"
-"-h: Print this menu\n"
-"-dynamic: Specify dynamic linking (linking with the stdlibrary + a lot more, but at the cost of the program being slow)\n"
-"-static: Specify static linking (done by default, no linking with stdlib and other libraries, but the program is fast)\n"
-"-...: Anything starting with '-' will be treated as a flag that will be sent to the assembler and linker\n";
-
 enum BirdSharpTypes {
    TYPE_STATIC,
    TYPE_DYNAMIC
@@ -134,46 +126,21 @@ char* find_ir() {
 #include "ir.c"
 #include "preprocessor.c"
 
+char *current_process = "";
 
-#define clockstart() clock_gettime(CLOCK_MONOTONIC, &__start);
 
-#define clockend(name) \
+#define clockend() \
     clock_gettime(CLOCK_MONOTONIC, &__end); \
-    fprintf(stdout, "[INFO] "name" process took %.4f milliseconds\n", (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6); \
+    fprintf(stdout, "[INFO] %s process took %.4f milliseconds\n", current_process, (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6); \
 
-void optimize_top_level(Parser *parser){
-    if (_main == NULL){
-        _main = arena_alloc(&arena, sizeof(AST));
-        if (top_level_len >= 1 && top_level != NULL){
-            _main->row = top_level[0]->row;
-            _main->col = top_level[0]->col;
-            _main->filename = top_level[0]->filename;
-        }
-        _main->type = AST_FUNCDEF;
-        _main->data.funcdef.name = "main";
-        _main->data.funcdef.block = top_level;
-        _main->data.funcdef.blocklen = top_level_len;
-        _main->next = NULL;
+#define clockstart(name) clockend(); current_process = name; clock_gettime(CLOCK_MONOTONIC, &__start);
 
-        if (parser->ast_tail) {
-            parser->ast_tail->next = _main;
-            parser->ast_tail = _main; 
-            parser->astlen++;
-        }
-    } else {
-        int old_len = _main->data.funcdef.blocklen;
-        int new_len = old_len + top_level_len;
 
-        AST **new_block = arena_realloc(&arena, _main->data.funcdef.block, sizeof(AST*) * old_len, sizeof(AST*) * new_len);
-        
-        for (int i = 0; i < top_level_len; i++) {
-            new_block[old_len + i] = top_level[i];
-        }
-        _main->data.funcdef.block = new_block;
-        _main->data.funcdef.blocklen = new_len;
-    }
-}
-
+char *HELP = 
+"Help for BirdSharp\n\n"
+"-o: Specify the output file\n"
+"-h: Print this menu\n"
+"-...: Anything starting with '-' will be treated as a flag that will be sent to the assembler and linker\n";
 
 int main(int argc, char **argv){
     struct timespec __begin;
@@ -212,52 +179,41 @@ int main(int argc, char **argv){
     arena_reset(&arena);
 
 
-    clockstart();
+    clockstart("Tokenizer");
 
 
     Tokenizer *tokenizer = tokenizer_init(input_file);
     while(tokenizer_token(tokenizer) != -1){};
 
 
-    clockend("Tokenizer");
-    clockstart();
+    clockstart("Preprocessor");
     
 
     preprocess(input_file, tokenizer);
 
-    clockend("Preprocessor");
-    clockstart();
+    clockstart("Parsing");
 
-    Parser *parser = parser_init(tokenizer);
-
-    while (parser_eat(parser) != -1){};
-
-    optimize_top_level(parser);
+    Parser *parser = parse_file(tokenizer);
 
 
-    clockend("Parsing");
-    clockstart();
+    clockstart("Typechecking");
 
     Typechecker *typechecker = typechecker_init(parser);
     while (typechecker_eat_ast(typechecker) != -1){};
 
-    clockend("Typechecking");
-    clockstart();
+    clockstart("Transpiling");
 
-    char *_ir = find_ir();
-    clock_gettime(CLOCK_MONOTONIC, &__start);
-    Generator *generator = generator_init(typechecker, _ir, ir);
-    while (generator_eat_ast(generator) != -1){};
+    Generator *generator = generator_make(typechecker, ir);
     
-    clockend("Transpiling");
-    clockstart();
+    clockstart("Compiling");
 
     char cmd[256];
-    snprintf(cmd, sizeof(cmd), "irc %s -target arm64 -o %s", _ir, output_file);
+    snprintf(cmd, sizeof(cmd), "irc %s -target arm64 -o %s", generator->output->filename, output_file);
     system(cmd);
-    remove(_ir);
 
-    clockend("Compiling");
+    generator_clean(generator);
+
+    clockend();
 
     fprintf(stdout, "[INFO] Program took %.4f milliseconds\n", (__end.tv_sec - __begin.tv_sec) * 1000.0 + (__end.tv_nsec - __begin.tv_nsec) / 1e6);
     

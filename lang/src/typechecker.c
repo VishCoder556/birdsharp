@@ -78,6 +78,12 @@ TC_Variable find_variable_in_scopes(Typechecker *typechecker, AST *_ast, int *p,
         variable.type = fetch_type(typechecker, _ast);
         return variable;
     };
+    if (ast.type == AST_REF){
+        TC_Variable variable;
+        variable.name = "";
+        variable.type = fetch_type(typechecker, _ast);
+        return variable;
+    };
     if (ast.type == AST_INDEX){
         TC_Variable variable;
         variable.name = "";
@@ -226,6 +232,10 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
             type.ptrnum--;
         };
         return type;
+    }else if(ast.type == AST_REF){
+        AST_TypeInfo type = fetch_type(typechecker, ast.data.expr.left);
+        type.ptrnum++;
+        return type;
     }else if(ast.type == AST_IF || ast.type == AST_WHILE){
         return (AST_TypeInfo){"", KIND_BOOL, 0};
     }else if(ast.type == AST_NOT){
@@ -333,15 +343,18 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         };
         typechecker->functionlen++;
 
+        AST *cur = ast->data.funcdef.block;
         for (int i=0; i<ast->data.funcdef.blocklen; i++){
-            typechecker_eat(typechecker, ast->data.funcdef.block[i]);
+            typechecker_eat(typechecker, cur);
+            cur = cur->next;
         };
 
         AST_TypeInfo found = (AST_TypeInfo){"", KIND_UNKNOWN, 0};
         int a = 0;
+        cur = ast->data.funcdef.block;
         for (int i=0; i<ast->data.funcdef.blocklen; i++){
-            if (ast->data.funcdef.block[i]->type == AST_RET){
-                found = fetch_type(typechecker, (ast->data.funcdef.block[i]));
+            if (cur->type == AST_RET){
+                found = fetch_type(typechecker, cur);
                 a = 1;
                 if(!are_equal(&expected, &found)){
                     char string[100];
@@ -349,6 +362,7 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
                     error_generate_parser("ReturnError", string, ast->row, ast->col, ast->filename);
                 };
             };
+            cur = cur->next;
         };
         if (a == 0){
             char string[100];
@@ -470,6 +484,8 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
     }else if(ast->type == AST_CAST){
         typechecker_eat(typechecker, ast->data.expr.left);
     }else if(ast->type == AST_DEREF){
+        typechecker_eat(typechecker, ast->data.expr.left);
+    }else if(ast->type == AST_REF){
         typechecker_eat(typechecker, ast->data.expr.left);
     }else if(ast->type == AST_IF){
         typechecker_eat(typechecker, ast->data.if1.block.condition);

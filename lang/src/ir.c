@@ -672,8 +672,10 @@ void ir_generate_ast(void *generator, AST ast){
             snprintf(string, 100, "\t%%local %s, %d\n\t%s [%s] = %s\n", arg.arg, typeinfo, len_to_selector(typeinfo), arg.arg, r_based_on_size(strdup(argS), typeinfo));
             generator_write_text(generator, strdup(string));
         };
+        AST *cur = ast.data.funcdef.block;
         for (int i=0; i<ast.data.funcdef.blocklen; i++){
-            ir_generate_stmnt(generator, *(ast.data.funcdef.block[i]));
+            ir_generate_stmnt(generator, *cur);
+            cur = cur->next;
         };
         generator_write_text(generator, "}\n");
     }else if (ast.type == AST_ASSIGN){

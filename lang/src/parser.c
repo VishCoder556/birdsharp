@@ -97,7 +97,8 @@ AST *mode_parse_expr(Parser *parser){
     return ast;
 };
 
-AST **top_level = NULL;
+AST *top_level = NULL;
+AST *top_level_cur = NULL;
 int top_level_len = 0;
 bool is_flat = 0;
 AST *_main = NULL;
@@ -130,7 +131,7 @@ char try_parse_mode(Parser *parser, AST *ast){
             }else if(strcmp(parser->tokens[parser->cur].value, "flat") == 0){
                 is_flat = 1;
                 if (top_level == NULL)
-                    top_level = malloc(sizeof(AST*) * 20);
+                    top_level = malloc(sizeof(AST));
                 parser_peek(parser);
                 return -1; // ignore as mode
             }else if(strcmp(parser->tokens[parser->cur].value, "round") == 0){
@@ -175,7 +176,6 @@ int get_precedence(int type){
 
 
 AST* rotate_to_left(AST* parent) {
-    // 1. If this isn't an expression or has no right child, do nothing
     if (parent == NULL || parent->data.expr.right == NULL) {
         return parent;
     }
@@ -197,6 +197,21 @@ AST* rotate_to_left(AST* parent) {
     return parent;
 }
 
+void ast_unary(AST *ast, int type, AST *left){
+    ast->type = AST_EXPR;
+    ast->data.expr.left = left;
+}
+void ast_arg(AST *ast, int type, char *value){
+    ast->type = type;
+    ast->data.arg.value = value;
+}
+
+void typeinfo(AST *ast, int kind, int ptrnum){
+    ast->typeinfo.kind = kind;
+    ast->typeinfo.ptrnum = ptrnum;
+}
+
+
 AST *parser_eat_expr(Parser *parser){
     Token token_1 = parser->tokens[parser->cur];
     int a = parser->cur;
@@ -212,59 +227,50 @@ AST *parser_eat_expr(Parser *parser){
     ast->type = AST_UNKNOWN;
     if (parser->tokens[parser->cur].type == TOKEN_LP){
         parser_peek(parser);
-        ast->type = AST_EXPR;
-        ast->data.expr.left = parser_eat_expr(parser);
+        ast_unary(ast, AST_EXPR, parser_eat_expr(parser));
         parser_expect(parser, TOKEN_RP);
     }else if (parser->tokens[parser->cur].type == TOKEN_EXC){
         parser_peek(parser);
-        ast->type = AST_NOT;
-        ast->data.expr.left = parser_eat_expr(parser);
+        ast_unary(ast, AST_NOT, parser_eat_expr(parser));
     }else if(parser->tokens[parser->cur].type == TOKEN_AMP){
         parser_peek(parser);
-        ast->type = AST_REF;
-        ast->data.expr.left = parser_eat_expr(parser);
-        ast->typeinfo = ast->data.expr.left->typeinfo;
-        ast->typeinfo.ptrnum++;
-        return ast;
+        ast_unary(ast, AST_REF, parser_eat_expr(parser));
     }else if (parser->tokens[parser->cur].type == TOKEN_STRING){
-        ast->type = AST_STRING;
-        ast->typeinfo.ptrnum = 1;
-        ast->typeinfo.kind = KIND_CHAR;
-        ast->data.arg.value = parser->tokens[parser->cur].value;
+        ast_arg(ast, AST_STRING, parser->tokens[parser->cur].value);
+        typeinfo(ast, KIND_CHAR, 1);
         parser_peek(parser);
     }else if(parser->tokens[parser->cur].type == TOKEN_SUB){
         parser_peek(parser);
         if (parser->tokens[parser->cur].type == TOKEN_INT){
-            ast->type = AST_INT;
-            ast->typeinfo.kind = KIND_CONST;
             char a[500];
             snprintf(a, 500, "-%s", parser->tokens[parser->cur].value);
-            ast->data.arg.value = strdup(a);
+
+            ast_arg(ast, AST_INT, strdup(a));
+            typeinfo(ast, KIND_CONST, 0);
+
             parser->cur++;
         }else {
             error_generate_parser("AbruptEndError", "Found negative sign alone", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->name);
         }
     }else if (parser->tokens[parser->cur].type == TOKEN_INT){
         ast->type = AST_INT;
-        ast->typeinfo.kind = KIND_CONST;
+        typeinfo(ast, KIND_CONST, 0);
         ast->data.arg.value = parser->tokens[parser->cur].value;
-        if (strcmp(parser->tokens[parser->cur].value, "true") == 0){
-            ast->data.arg.value = "1";
-            ast->typeinfo.kind = KIND_BOOL;
+        if (strcmp(parser->tokens[parser->cur].value, "true") == 0){ // Booleans are treated as integers
+            ast_arg(ast, AST_INT, "1");
+            typeinfo(ast, KIND_BOOL, 0);
         }else if (strcmp(parser->tokens[parser->cur].value, "false") == 0){
-            ast->data.arg.value = "0";
-            ast->typeinfo.kind = KIND_BOOL;
+            ast_arg(ast, AST_INT, "0");
+            typeinfo(ast, KIND_BOOL, 0);
         }
         parser_peek(parser);
     }else if (parser->tokens[parser->cur].type == TOKEN_FLOAT){
-        ast->type = AST_FLOAT;
-        ast->typeinfo.kind = KIND_FLOAT;
-        ast->data.arg.value = parser->tokens[parser->cur].value;
+        ast_arg(ast, AST_FLOAT, parser->tokens[parser->cur].value);
+        typeinfo(ast, KIND_FLOAT, 0);
         parser_peek(parser);
     }else if (parser->tokens[parser->cur].type == TOKEN_CHAR){
-        ast->type = AST_CHAR;
-        ast->typeinfo.kind = KIND_CHAR;
-        ast->data.arg.value = parser->tokens[parser->cur].value;
+        ast_arg(ast, AST_CHAR, parser->tokens[parser->cur].value);
+        typeinfo(ast, KIND_CHAR, 0);
         parser_peek(parser);
     }else if (parser->tokens[parser->cur].type == TOKEN_ID){
         if (parser->tokens[parser->cur+1].type == TOKEN_LP){
@@ -734,7 +740,14 @@ parse_flat:
             return ast;
         }else {
             free(ast);
-            top_level[top_level_len++] = ast_new;
+            if (top_level_len == 0){
+                top_level = ast_new;
+                top_level_cur = top_level;
+            }else {
+                top_level_cur->next = ast_new;
+                top_level_cur = ast_new;
+            }
+            top_level_len++;
             return parser_eat_body(parser);
         }
     }
@@ -754,7 +767,6 @@ parse_flat:
             }else if(parser->tokens[parser->cur].type == TOKEN_LP){
                 ast->type = AST_FUNCDEF;
                 ast->data.funcdef.args = malloc(sizeof(Argument*) * 100);
-                ast->data.funcdef.block = malloc(sizeof(AST*) * 200);
                 ast->data.funcdef.name = ast->data.assign.from->data.arg.value;
                 if (strcmp(ast->data.funcdef.name, "main") == 0){
                     _main = ast;
@@ -786,6 +798,10 @@ parse_flat:
             }
             Token prev = (Token){0};
             char c = 0;
+
+            AST* head = NULL;
+            AST* tail = NULL;
+            int len = 0;
             while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
                 if (parser->tokens[parser->cur].type == prev.type && strcmp(parser->tokens[parser->cur].value, prev.value) == 0){
                     c++;
@@ -795,9 +811,19 @@ parse_flat:
                 }else {
                     c = 0;
                 };
-                ast->data.funcdef.block[ast->data.funcdef.blocklen++] = parser_eat_ast(parser);
+                AST *new_node = parser_eat_ast(parser);
+                len++;
+                if (head == NULL) {
+                    head = new_node;
+                    tail = head;
+                } else {
+                    tail->next = new_node;
+                    tail = new_node;
+                }
                 prev = parser->tokens[parser->cur-1];
             };
+            ast->data.funcdef.block = head;
+            ast->data.funcdef.blocklen = len;
             parser_expect(parser, TOKEN_RB);
             }else {
                 goto parse_flat;
@@ -899,5 +925,47 @@ Parser *parser_init(Tokenizer *tokenizer){
     parser->tokens = tokenizer->tokens;
     parser->tokens[parser->cur].name = tokenizer->name;
     parser->tokenlen = tokenizer->tokenlen;
+    return parser;
+}
+
+void optimize_top_level(Parser *parser){
+    if (_main == NULL){
+        _main = arena_alloc(&arena, sizeof(AST));
+        if (top_level_len >= 1 && top_level != NULL){
+            _main->row = top_level->row;
+            _main->col = top_level->col;
+            _main->filename = top_level->filename;
+        }
+        _main->type = AST_FUNCDEF;
+        _main->data.funcdef.name = "main";
+        _main->data.funcdef.block = top_level;
+        _main->data.funcdef.blocklen = top_level_len;
+        _main->next = NULL;
+
+        if (parser->ast_tail) {
+            parser->ast_tail->next = _main;
+            parser->ast_tail = _main; 
+            parser->astlen++;
+        }
+    } else {
+        if (_main->data.funcdef.block == NULL) {
+            _main->data.funcdef.block = top_level;
+        } else {
+            AST *current = _main->data.funcdef.block;
+            while (current->next != NULL) {
+                current = current->next;
+            }
+            current->next = top_level;
+        }
+
+        _main->data.funcdef.blocklen += top_level_len;
+    }
+}
+
+
+Parser *parse_file(Tokenizer *tokenizer){
+    Parser *parser = parser_init(tokenizer);
+    while (parser_eat(parser) != -1){};
+    optimize_top_level(parser);
     return parser;
 }

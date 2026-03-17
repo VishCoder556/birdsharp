@@ -121,7 +121,7 @@ typedef struct {
     char *name;
     struct Argument **args;
     int argslen;
-    AST **block;
+    AST *block;
     int blocklen;
 } AST_FuncDef;
 

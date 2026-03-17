@@ -226,7 +226,6 @@ char *x86_64_move(Compiler *compiler, char *reg, char *buf, int typeinfo){
 void x86_64_compare(Compiler *compiler, AST *ast){
         char *left = x86_64_eat_expr(compiler, ast->data.expr.left, -1);
         char *right = x86_64_eat_expr(compiler, ast->data.expr.right, -1);
-        // compiler_write_text_line(compiler, "mov r12, %s", left);
         char *reg = x86_64_move(compiler, "r12", left, ast->data.expr.left->typeinfo);
         compiler_write_text_line(compiler, "cmp %s, %s", reg, right);
 }

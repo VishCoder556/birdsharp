@@ -32,8 +32,6 @@ Generator *_generator_init(Typechecker *typechecker, char *file, Generator_Funct
     return generator;
 };
 
-#define generator_init(typechecker, file, prefix) _generator_init(typechecker, file, (Generator_Functions){.init=prefix##_init, .generate_ast=prefix##_generate_ast, .close=prefix##_close})
-
 int generator_eat_ast(Generator *generator){
     if (generator->astlen == generator->cur){
         generator->functions.close(generator);
@@ -99,3 +97,15 @@ void generator_open_binary_file(Generator *generator, char *file){
 void generator_close(Generator *generator){
     fclose(generator->output->file);
 }
+
+
+// #define generator_init(typechecker, file, prefix) _generator_init(typechecker, file, (Generator_Functions){.init=prefix##_init, .generate_ast=prefix##_generate_ast, .close=prefix##_close})
+Generator *_generator_make(Typechecker *typechecker, Generator_Functions functions){
+    char *_ir = find_ir();
+    Generator *generator = _generator_init(typechecker, _ir, functions);
+    while (generator_eat_ast(generator) != -1){};
+    return generator;
+};
+
+#define generator_make(typechecker, prefix) _generator_make(typechecker, (Generator_Functions){.init=prefix##_init, .generate_ast=prefix##_generate_ast, .close=prefix##_close})
+#define generator_clean(generator) remove(generator->output->filename)
