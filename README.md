@@ -59,7 +59,7 @@ Modes are one of BirdSharp's most powerful and unique features. Unlike standard 
     * These manage how an object is compiled into its final executable.
     * They primarily influence the final output file rather than the internal logic representation.
 
-The following sample demonstrates the use of both preprocessor and parsing modes:
+The following sample demonstrates the use of both preprocessor, parsing, and typechecking / revising modes:
 
 ```c
 #!include "std.bsh"
