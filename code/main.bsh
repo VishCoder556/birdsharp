@@ -23,5 +23,5 @@ var fibonacci(var n) {
 print("Fibonacci(10) = ")
 print(long_to_string(fibonacci(10)))
 print("\n")
-exit(0)
+exit(cast(int, 3 > 5))
 return 0;

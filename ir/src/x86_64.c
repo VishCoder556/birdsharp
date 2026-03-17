@@ -140,10 +140,10 @@ void x86_64_close(Compiler *compiler){
     snprintf(string, 100, "yasm -f macho64 %s -o %s", compiler->_asm, compiler->_o);
     system(string);
 
-    snprintf(string, 100, "bat %s", compiler->_asm);
-    system(string);
-    snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
-    system(string);
+    // snprintf(string, 100, "bat %s", compiler->_asm);
+    // system(string);
+    // snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
+    // system(string);
 
     remove(compiler->_asm);
     snprintf(string, 100, "clang -arch x86_64 %s -o %s -e main -Wl,-w -Wl,-platform_version,macos,11.0,11.0", compiler->_o, compiler->name);

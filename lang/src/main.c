@@ -209,7 +209,7 @@ int main(int argc, char **argv){
     clockstart("Compiling");
 
     char cmd[256];
-    snprintf(cmd, sizeof(cmd), "irc %s -target arm64 -o %s", generator->output->filename, output_file);
+    snprintf(cmd, sizeof(cmd), "irc %s -o %s", generator->output->filename, output_file);
     system(cmd);
 
     generator_clean(generator);
