@@ -352,6 +352,7 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         AST_TypeInfo found = (AST_TypeInfo){"", KIND_UNKNOWN, 0};
         int a = 0;
         cur = ast->data.funcdef.block;
+        // printf("{%d, %d}\n", cur->type, ast->data.funcdef.blocklen);
         for (int i=0; i<ast->data.funcdef.blocklen; i++){
             if (cur->type == AST_RET){
                 found = fetch_type(typechecker, cur);

@@ -173,6 +173,11 @@ void ast_unary(AST *ast, int type, AST *left){
     ast->type = AST_EXPR;
     ast->data.expr.left = left;
 }
+void ast_binary(AST *ast, int type, AST *left, AST *right){
+    ast->type = type;
+    ast->data.expr.right = right;
+    ast->data.expr.left = left;
+}
 void ast_arg(AST *ast, int type, char *value){
     ast->type = type;
     ast->data.arg.value = value;
@@ -183,15 +188,19 @@ void typeinfo(AST *ast, int kind, int ptrnum){
     ast->typeinfo.ptrnum = ptrnum;
 }
 
+void parser_location(Parser *parser, AST *ast){
+    ast->row = parser->tokens[parser->cur].row;
+    ast->col = parser->tokens[parser->cur].col;
+    ast->filename = parser->tokens[parser->cur].name;
+}
+
 
 AST *parser_eat_expr(Parser *parser){
     Token token_1 = parser->tokens[parser->cur];
     int a = parser->cur;
     AST *ast = malloc(sizeof(AST));
     *ast = (AST){0};
-    ast->row = parser->tokens[a].row;
-    ast->col = parser->tokens[a].col;
-    ast->filename = parser->tokens[a].name;
+    parser_location(parser, ast);
     ast->next = NULL;
     if (try_parse_mode(parser, ast) == 0){
         return ast;
@@ -299,9 +308,7 @@ skip:
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
         ast2->type = AST_INDEX;
-        ast2->row = parser->tokens[parser->cur].row;
-        ast2->col = parser->tokens[parser->cur].col;
-        ast2->filename = parser->tokens[parser->cur].name;
+        parser_location(parser, ast2);
         ast2->data.expr.left = ast;
         if (parser->cur + 1 == parser->tokenlen){
             error_generate("AbruptEndError", "Abrupt end");
@@ -317,29 +324,17 @@ skip:
     if (parser->tokens[parser->cur].type == TOKEN_PLUS){
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
-        ast2->type = AST_PLUS;
-        ast2->row = parser->tokens[parser->cur].row;
-        ast2->col = parser->tokens[parser->cur].col;
-        ast2->filename = parser->tokens[parser->cur].name;
-        ast2->data.expr.left = ast;
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
+        parser_location(parser, ast2);
         parser_peek(parser);
-        ast2->data.expr.right = parser_eat_expr(parser);
+        ast_binary(ast2, AST_PLUS, ast, parser_eat_expr(parser));
         ast = rotate_to_left(ast2);
     }
     if (parser->tokens[parser->cur].type == TOKEN_SUB){
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
         ast2->type = AST_SUB;
-        ast2->row = parser->tokens[parser->cur].row;
-        ast2->col = parser->tokens[parser->cur].col;
-        ast2->filename = parser->tokens[parser->cur].name;
+        parser_location(parser, ast2);
         ast2->data.expr.left = ast;
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
         ast = rotate_to_left(ast2);
@@ -348,6 +343,7 @@ skip:
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
         ast2->type = AST_MUL;
+        parser_location(parser, ast2);
         ast2->data.expr.left = ast;
         if (parser->cur + 1 == parser->tokenlen){
             error_generate("AbruptEndError", "Abrupt end in multiplication");
@@ -637,9 +633,7 @@ AST *parser_eat_ast(Parser *parser){
                 AST *ast_expr = parser_eat_expr(parser);
                 if(parser->tokens[parser->cur].type == TOKEN_EQ){
                     ast->type = AST_ASSIGN;
-                    ast->row = parser->tokens[parser->cur].row;
-                    ast->col = parser->tokens[parser->cur].col;
-                    ast->filename = parser->tokens[parser->cur].name;
+                    parser_location(parser, ast);
                     ast->typeinfo.type = "unknown";
                     ast->typeinfo.kind = KIND_UNKNOWN;
                     ast->data.assign.from = ast_expr;
@@ -668,9 +662,7 @@ AST *parser_eat_ast(Parser *parser){
         AST *ast_expr = parser_eat_expr(parser);
         if(parser->tokens[parser->cur].type == TOKEN_EQ){
             ast->type = AST_ASSIGN;
-            ast->row = parser->tokens[parser->cur].row;
-            ast->col = parser->tokens[parser->cur].col;
-            ast->filename = parser->tokens[parser->cur].name;
+            parser_location(parser, ast);
             ast->typeinfo.kind = KIND_UNKNOWN;
             ast->data.assign.new = false;
             ast->data.assign.from = ast_expr;
@@ -694,9 +686,7 @@ AST *parser_eat_body(Parser *parser){
     int av = parser->cur;
     AST *ast = malloc(sizeof(AST));
     *ast = (AST){0};
-    ast->row = parser->tokens[av].row;
-    ast->col = parser->tokens[av].col;
-    ast->filename = parser->tokens[av].name;
+    parser_location(parser, ast);
     ast->next = NULL;
     int orig_cur = parser->cur;
     if (try_parse_mode(parser, ast) == 0){
