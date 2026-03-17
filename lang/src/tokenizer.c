@@ -39,9 +39,9 @@ char tokenizer_token(Tokenizer *tokenizer){
     }else if (c == '$'){
         tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_DOLLAR, "$", tokenizer->line, tokenizer->col, tokenizer->name};
     }else if (c == '<'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_GT, "<", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_LT, "<", tokenizer->line, tokenizer->col, tokenizer->name};
     }else if (c == '>'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_LT, ">", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_GT, ">", tokenizer->line, tokenizer->col, tokenizer->name};
     }else if (c == '+'){
         tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_PLUS, "+", tokenizer->line, tokenizer->col, tokenizer->name};
     }else if (c == '['){

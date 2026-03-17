@@ -394,7 +394,7 @@ char *ir_generate_expr(void *generator, AST ast){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
         char string[100];
-        snprintf(string, 100, "%s < %s", lhs, rhs);
+        snprintf(string, 100, "%s > %s", lhs, rhs);
         free_temp(lhs);
         free_temp(rhs);
         return strdup(string);
@@ -402,7 +402,7 @@ char *ir_generate_expr(void *generator, AST ast){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
         char string[100];
-        snprintf(string, 100, "%s <= %s", lhs, rhs);
+        snprintf(string, 100, "%s >= %s", lhs, rhs);
         free_temp(lhs);
         free_temp(rhs);
         return strdup(string);
@@ -410,7 +410,7 @@ char *ir_generate_expr(void *generator, AST ast){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
         char string[100];
-        snprintf(string, 100, "%s > %s", lhs, rhs);
+        snprintf(string, 100, "%s < %s", lhs, rhs);
         free_temp(lhs);
         free_temp(rhs);
         return strdup(string);
@@ -418,7 +418,7 @@ char *ir_generate_expr(void *generator, AST ast){
         char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
         char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
         char string[100];
-        snprintf(string, 100, "%s >= %s", lhs, rhs);
+        snprintf(string, 100, "%s <= %s", lhs, rhs);
         free_temp(lhs);
         free_temp(rhs);
         return strdup(string);
