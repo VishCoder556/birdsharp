@@ -133,7 +133,8 @@ char *current_process = "";
     clock_gettime(CLOCK_MONOTONIC, &__end); \
     fprintf(stdout, "[INFO] %s process took %.4f milliseconds\n", current_process, (__end.tv_sec - __start.tv_sec) * 1000.0 + (__end.tv_nsec - __start.tv_nsec) / 1e6); \
 
-#define clockstart(name) clockend(); current_process = name; clock_gettime(CLOCK_MONOTONIC, &__start);
+#define clockbegin(name) current_process = name; clock_gettime(CLOCK_MONOTONIC, &__start);
+#define clockstart(name) clockend(); clockbegin(name);
 
 
 char *HELP = 
@@ -179,7 +180,7 @@ int main(int argc, char **argv){
     arena_reset(&arena);
 
 
-    clockstart("Tokenizer");
+    clockbegin("Tokenizer");
 
 
     Tokenizer *tokenizer = tokenizer_init(input_file);

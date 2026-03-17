@@ -69,6 +69,7 @@ char parse_type(Parser *parser, AST_TypeInfo *typeinfo){
     }
     return 0;
 }
+
 char is_type(Parser *parser, Token tok){
     for (int v=0; v<typesLen; v++){
         if (strcmp(types[v].name, tok.value) == 0){
@@ -80,22 +81,6 @@ char is_type(Parser *parser, Token tok){
 
 
 AST *parser_eat_expr(Parser *parser);
-
-AST *mode_parse_expr(Parser *parser){
-    AST *ast = malloc(sizeof(AST));
-    *ast = (AST){0};
-    ast->type = AST_MODE;
-    ast->data.mode.name = malloc(500);
-    strcpy(ast->data.mode.name, "");
-    while (parser->tokens[parser->cur].type == TOKEN_ID || parser->tokens[parser->cur].type == TOKEN_DOT){
-        strncat(ast->data.mode.name, parser->tokens[parser->cur].value, 100);
-        parser_peek(parser);
-    };
-    if (parser->tokens[parser->cur].type == TOKEN_EOF){
-        error_generate("ModeError", "Abrupt end to expression of if macro");
-    };
-    return ast;
-};
 
 AST *top_level = NULL;
 AST *top_level_cur = NULL;
@@ -115,20 +100,7 @@ char try_parse_mode(Parser *parser, AST *ast){
         if (parser->tokens[parser->cur].type == TOKEN_EXC) {
             ast->type = AST_MODE;
             parser_peek(parser);
-            if (strcmp(parser->tokens[parser->cur].value, "if") == 0){
-                ast->type = AST_MODE_IF;
-                parser_peek(parser);
-                ast->data.if1 = (AST_If){};
-                ast->data.if1.block.condition = mode_parse_expr(parser);
-                ast->data.if1.block.statements = malloc(sizeof(AST*) * 100);
-                ast->data.if1.block.statementlen = 0;
-                parser_expect(parser, TOKEN_LB);
-                while (parser->tokens[parser->cur].type != TOKEN_RB){
-                    ast->data.if1.block.statements[ast->data.if1.block.statementlen++] = parser_eat_ast(parser);
-                };
-                parser_peek(parser);
-                return 0;
-            }else if(strcmp(parser->tokens[parser->cur].value, "flat") == 0){
+            if(strcmp(parser->tokens[parser->cur].value, "flat") == 0){
                 is_flat = 1;
                 if (top_level == NULL)
                     top_level = malloc(sizeof(AST));
