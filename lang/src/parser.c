@@ -2,10 +2,10 @@
 
 
 void parser_peek(Parser *parser){
-    parser->cur++;
-    if (parser->cur > parser->tokenlen){
+    if (parser->cur+1 >= parser->tokenlen){
         error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->tokenlen-1].row, parser->tokens[parser->tokenlen-1].col, parser->tokens[parser->cur].name);
     };
+    parser->cur++;
 };
 void parser_expect_next(Parser *parser, int type){
     if (parser->cur+1 != parser->tokenlen){
@@ -146,7 +146,6 @@ int get_precedence(int type){
     };
 }
 
-
 AST* rotate_to_left(AST* parent) {
     if (parent == NULL || parent->data.expr.right == NULL) {
         return parent;
@@ -193,117 +192,7 @@ void parser_location(Parser *parser, AST *ast){
     ast->col = parser->tokens[parser->cur].col;
     ast->filename = parser->tokens[parser->cur].name;
 }
-
-
-AST *parser_eat_expr(Parser *parser){
-    Token token_1 = parser->tokens[parser->cur];
-    int a = parser->cur;
-    AST *ast = malloc(sizeof(AST));
-    *ast = (AST){0};
-    parser_location(parser, ast);
-    ast->next = NULL;
-    if (try_parse_mode(parser, ast) == 0){
-        return ast;
-    };
-    ast->type = AST_UNKNOWN;
-    if (parser->tokens[parser->cur].type == TOKEN_LP){
-        parser_peek(parser);
-        ast_unary(ast, AST_EXPR, parser_eat_expr(parser));
-        parser_expect(parser, TOKEN_RP);
-    }else if (parser->tokens[parser->cur].type == TOKEN_EXC){
-        parser_peek(parser);
-        ast_unary(ast, AST_NOT, parser_eat_expr(parser));
-    }else if(parser->tokens[parser->cur].type == TOKEN_AMP){
-        parser_peek(parser);
-        ast_unary(ast, AST_REF, parser_eat_expr(parser));
-    }else if (parser->tokens[parser->cur].type == TOKEN_STRING){
-        ast_arg(ast, AST_STRING, parser->tokens[parser->cur].value);
-        typeinfo(ast, KIND_CHAR, 1);
-        parser_peek(parser);
-    }else if(parser->tokens[parser->cur].type == TOKEN_SUB){
-        parser_peek(parser);
-        if (parser->tokens[parser->cur].type == TOKEN_INT){
-            char a[500];
-            snprintf(a, 500, "-%s", parser->tokens[parser->cur].value);
-
-            ast_arg(ast, AST_INT, strdup(a));
-            typeinfo(ast, KIND_CONST, 0);
-
-            parser->cur++;
-        }else {
-            error_generate_parser("AbruptEndError", "Found negative sign alone", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->name);
-        }
-    }else if (parser->tokens[parser->cur].type == TOKEN_INT){
-        ast->type = AST_INT;
-        typeinfo(ast, KIND_CONST, 0);
-        ast->data.arg.value = parser->tokens[parser->cur].value;
-        if (strcmp(parser->tokens[parser->cur].value, "true") == 0){ // Booleans are treated as integers
-            ast_arg(ast, AST_INT, "1");
-            typeinfo(ast, KIND_BOOL, 0);
-        }else if (strcmp(parser->tokens[parser->cur].value, "false") == 0){
-            ast_arg(ast, AST_INT, "0");
-            typeinfo(ast, KIND_BOOL, 0);
-        }
-        parser_peek(parser);
-    }else if (parser->tokens[parser->cur].type == TOKEN_FLOAT){
-        ast_arg(ast, AST_FLOAT, parser->tokens[parser->cur].value);
-        typeinfo(ast, KIND_FLOAT, 0);
-        parser_peek(parser);
-    }else if (parser->tokens[parser->cur].type == TOKEN_CHAR){
-        ast_arg(ast, AST_CHAR, parser->tokens[parser->cur].value);
-        typeinfo(ast, KIND_CHAR, 0);
-        parser_peek(parser);
-    }else if (parser->tokens[parser->cur].type == TOKEN_ID){
-        if (parser->tokens[parser->cur+1].type == TOKEN_LP){
-            ast->type = AST_FUNCALL;
-            ast->data.funcall = (AST_FuncCall){};
-            ast->data.funcall.args = malloc(sizeof(AST*) * 100);
-            parser_expect(parser, TOKEN_ID);
-            ast->data.funcall.name = parser->tokens[parser->cur-1].value;
-            parser_expect(parser, TOKEN_LP);
-            if (strcmp(ast->data.funcall.name, "cast") == 0){
-                ast->type = AST_CAST;
-                parse_type(parser, &ast->typeinfo);
-                parser_expect(parser, TOKEN_COMMA);
-                ast->data.expr.left = parser_eat_expr(parser);
-                parser_expect(parser, TOKEN_RP);
-                goto skip;
-            };
-            while (parser->tokens[parser->cur].type != TOKEN_RP && parser->tokens[parser->cur].type != TOKEN_EOF){
-                ast->data.funcall.args[ast->data.funcall.argslen++] = parser_eat_expr(parser);
-                if (parser->tokens[parser->cur].type != TOKEN_RP){
-                    parser_expect(parser, TOKEN_COMMA);
-                };
-            };
-            parser_expect(parser, TOKEN_RP);
-            if (strcmp(ast->data.funcall.name, "deref") == 0){
-                ast->type = AST_DEREF;
-                if (ast->data.funcall.argslen != 1){
-                    error_generate("DerefError", "Too less or too many arguments to deref function");
-                };
-                ast->data.expr.left = ast->data.funcall.args[0];
-            }else if(strncmp(ast->data.funcall.name, "syscall", strlen("syscall")) == 0){
-                ast->type = AST_SYSCALL;
-                ast->data.funcall.name = ast->data.funcall.name;
-            };
-        }else {
-            ast->type = AST_VAR;
-            ast->data.arg.value = parser->tokens[parser->cur].value;
-            parser_peek(parser);
-        }
-    };
-skip:
-
-    if (parser->tokens[parser->cur].type == TOKEN_ID){
-        if (parser->tokens[parser->cur].value[0] == 'x' && strcmp(ast->data.arg.value, "0") == 0){
-            char decimal_string[20];
-            strncpy(decimal_string, "0", 20);
-            strncat(decimal_string, parser->tokens[parser->cur].value, 19);
-            ast->data.arg.value = strdup(decimal_string);
-            parser_peek(parser);
-        };
-    }
-
+AST *parser_eat_binary(Parser *parser, AST *ast){
     if (parser->tokens[parser->cur].type == TOKEN_LBRACKET){
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
@@ -505,6 +394,118 @@ skip:
         }
     }
     return ast;
+}
+
+
+AST *parser_eat_expr(Parser *parser){
+    Token token_1 = parser->tokens[parser->cur];
+    int a = parser->cur;
+    AST *ast = malloc(sizeof(AST));
+    *ast = (AST){0};
+    parser_location(parser, ast);
+    ast->next = NULL;
+    if (try_parse_mode(parser, ast) == 0){
+        return ast;
+    };
+    ast->type = AST_UNKNOWN;
+    if (parser->tokens[parser->cur].type == TOKEN_LP){
+        parser_peek(parser);
+        ast_unary(ast, AST_EXPR, parser_eat_expr(parser));
+        parser_expect(parser, TOKEN_RP);
+    }else if (parser->tokens[parser->cur].type == TOKEN_EXC){
+        parser_peek(parser);
+        ast_unary(ast, AST_NOT, parser_eat_expr(parser));
+    }else if(parser->tokens[parser->cur].type == TOKEN_AMP){
+        parser_peek(parser);
+        ast_unary(ast, AST_REF, parser_eat_expr(parser));
+    }else if (parser->tokens[parser->cur].type == TOKEN_STRING){
+        ast_arg(ast, AST_STRING, parser->tokens[parser->cur].value);
+        typeinfo(ast, KIND_CHAR, 1);
+        parser_peek(parser);
+    }else if(parser->tokens[parser->cur].type == TOKEN_SUB){
+        parser_peek(parser);
+        if (parser->tokens[parser->cur].type == TOKEN_INT){
+            char a[500];
+            snprintf(a, 500, "-%s", parser->tokens[parser->cur].value);
+
+            ast_arg(ast, AST_INT, strdup(a));
+            typeinfo(ast, KIND_CONST, 0);
+
+            parser->cur++;
+        }else {
+            error_generate_parser("AbruptEndError", "Found negative sign alone", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->name);
+        }
+    }else if (parser->tokens[parser->cur].type == TOKEN_INT){
+        ast->type = AST_INT;
+        typeinfo(ast, KIND_CONST, 0);
+        ast->data.arg.value = parser->tokens[parser->cur].value;
+        if (strcmp(parser->tokens[parser->cur].value, "true") == 0){ // Booleans are treated as integers
+            ast_arg(ast, AST_INT, "1");
+            typeinfo(ast, KIND_BOOL, 0);
+        }else if (strcmp(parser->tokens[parser->cur].value, "false") == 0){
+            ast_arg(ast, AST_INT, "0");
+            typeinfo(ast, KIND_BOOL, 0);
+        }
+        parser_peek(parser);
+    }else if (parser->tokens[parser->cur].type == TOKEN_FLOAT){
+        ast_arg(ast, AST_FLOAT, parser->tokens[parser->cur].value);
+        typeinfo(ast, KIND_FLOAT, 0);
+        parser_peek(parser);
+    }else if (parser->tokens[parser->cur].type == TOKEN_CHAR){
+        ast_arg(ast, AST_CHAR, parser->tokens[parser->cur].value);
+        typeinfo(ast, KIND_CHAR, 0);
+        parser_peek(parser);
+    }else if (parser->tokens[parser->cur].type == TOKEN_ID){
+        if (parser->tokens[parser->cur+1].type == TOKEN_LP){
+            ast->type = AST_FUNCALL;
+            ast->data.funcall = (AST_FuncCall){};
+            ast->data.funcall.args = malloc(sizeof(AST*) * 100);
+            parser_expect(parser, TOKEN_ID);
+            ast->data.funcall.name = parser->tokens[parser->cur-1].value;
+            parser_expect(parser, TOKEN_LP);
+            if (strcmp(ast->data.funcall.name, "cast") == 0){
+                ast->type = AST_CAST;
+                parse_type(parser, &ast->typeinfo);
+                parser_expect(parser, TOKEN_COMMA);
+                ast->data.expr.left = parser_eat_expr(parser);
+                parser_expect(parser, TOKEN_RP);
+                goto skip;
+            };
+            while (parser->tokens[parser->cur].type != TOKEN_RP && parser->tokens[parser->cur].type != TOKEN_EOF){
+                ast->data.funcall.args[ast->data.funcall.argslen++] = parser_eat_expr(parser);
+                if (parser->tokens[parser->cur].type != TOKEN_RP){
+                    parser_expect(parser, TOKEN_COMMA);
+                };
+            };
+            parser_expect(parser, TOKEN_RP);
+            if (strcmp(ast->data.funcall.name, "deref") == 0){
+                ast->type = AST_DEREF;
+                if (ast->data.funcall.argslen != 1){
+                    error_generate("DerefError", "Too less or too many arguments to deref function");
+                };
+                ast->data.expr.left = ast->data.funcall.args[0];
+            }else if(strncmp(ast->data.funcall.name, "syscall", strlen("syscall")) == 0){
+                ast->type = AST_SYSCALL;
+                ast->data.funcall.name = ast->data.funcall.name;
+            };
+        }else {
+            ast->type = AST_VAR;
+            ast->data.arg.value = parser->tokens[parser->cur].value;
+            parser_peek(parser);
+        }
+    };
+skip:
+
+    if (parser->tokens[parser->cur].type == TOKEN_ID){
+        if (parser->tokens[parser->cur].value[0] == 'x' && strcmp(ast->data.arg.value, "0") == 0){
+            char decimal_string[20];
+            strncpy(decimal_string, "0", 20);
+            strncat(decimal_string, parser->tokens[parser->cur].value, 19);
+            ast->data.arg.value = strdup(decimal_string);
+            parser_peek(parser);
+        };
+    }
+    return parser_eat_binary(parser, ast);
 };
 
 AST *parser_eat_ast(Parser *parser){
@@ -817,9 +818,6 @@ char parser_eat(Parser *parser){
     parser->astlen++;
     return 0;
 };
-
-
-
 
 
 char *typeinfo_to_string(AST_TypeInfo typeinfo){

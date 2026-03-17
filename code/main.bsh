@@ -1,5 +1,4 @@
 #!include "std.bsh"
-hello
 #!flat
 #!autovar on
 
@@ -24,5 +23,4 @@ var fibonacci(var n) {
 print("Fibonacci(10) = ")
 print(long_to_string(fibonacci(10)))
 print("\n")
-exit(cast(int, 3 > 5))
-return 0;
+return 5;

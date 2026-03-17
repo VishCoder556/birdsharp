@@ -324,209 +324,246 @@ void typechecker_mode(Typechecker *typechecker, AST *ast){
     }
 };
 
+void typechecker_eat_function(Typechecker *typechecker, AST *ast){
+    AST_TypeInfo expected = ast->typeinfo;
+    typechecker->functions[typechecker->functionlen].name = ast->data.funcdef.name;
+    typechecker->functions[typechecker->functionlen].args = malloc(sizeof(AST_TypeInfo) * 100);
+    typechecker->functions[typechecker->functionlen].arglen = ast->data.funcdef.argslen;
+    typechecker->functions[typechecker->functionlen].ret = ast->typeinfo;
+    typechecker->functions[typechecker->functionlen].scope = initialize_scope();
+    if (current_scope != NULL) free(current_scope);
+    current_scope = malloc(sizeof(TC_Scope));
+    *current_scope = typechecker->functions[typechecker->functionlen].scope;
+    for (int i=0; i<ast->data.funcdef.argslen; i++){
+        add_variable_in_current_scope((TC_Variable){ast->data.funcdef.args[i]->arg, ast->data.funcdef.args[i]->type, true});
+        typechecker->functions[typechecker->functionlen].args[i] = ast->data.funcdef.args[i]->type;
+    };
+    typechecker->functionlen++;
+
+    AST *cur = ast->data.funcdef.block;
+    for (int i=0; i<ast->data.funcdef.blocklen; i++){
+        typechecker_eat(typechecker, cur);
+        cur = cur->next;
+    };
+
+    AST_TypeInfo found = (AST_TypeInfo){"", KIND_UNKNOWN, 0};
+    int a = 0;
+    cur = ast->data.funcdef.block;
+    for (int i=0; i<ast->data.funcdef.blocklen; i++){
+        if (cur->type == AST_RET){
+            found = fetch_type(typechecker, cur);
+            a = 1;
+            if(!are_equal(&expected, &found)){
+                char string[100];
+                snprintf(string, 100, "Function expects a return type of %s, but return is found returning %s", typeinfo_to_string(expected), typeinfo_to_string(found));
+                error_generate_parser("ReturnError", string, ast->row, ast->col, ast->filename);
+            };
+        };
+        cur = cur->next;
+    };
+    if (a == 0){
+        char string[100];
+        snprintf(string, 100, "No return found in function \"%s\" that doesn't return void", ast->data.funcdef.name);
+        error_generate_parser("ReturnError", string, ast->row, ast->col, ast->filename);
+    };
+}
+
+void typechecker_eat_assign(Typechecker *typechecker, AST *ast){
+    bool is_block = typechecker->iter && typechecker->iter->type == AST_ASSIGN;
+    AST_TypeInfo expected = ast->typeinfo;
+    if (strcmp(typeinfo_to_string(expected), "unknown") == 0){
+        int *p = malloc(sizeof(int));
+        expected = find_variable_in_scopes(typechecker, ast->data.assign.from, p, 0).type;
+        if (expected.type == 0 && var_auto == 1){
+            expected = (AST_TypeInfo){"", KIND_AUTO, 0};
+            ast->typeinfo = expected;
+            ast->data.assign.new = true;
+            goto blockarea;
+        }
+        if (*p == 2 && is_block){
+            error_generate_parser("GlobalVarError", "Global variables cannot be re-assigned.", ast->data.assign.from->row, ast->data.assign.from->col, ast->data.assign.from->filename);
+        }
+        ast->typeinfo = expected;
+    }else if(is_block){
+        if (ast->data.assign.from->type != AST_VAR){
+            error_generate_parser("GlobalVarError", "Global variables cannot be assined to anything other than a variable.", ast->data.assign.from->row, ast->data.assign.from->col, ast->data.assign.from->filename);
+        };
+        if (!is_immediate(ast->data.assign.assignto)){
+            error_generate_parser("GlobalVarError", "Global variables cannot be set to a non-constant value.", ast->data.assign.assignto->row, ast->data.assign.assignto->col, ast->data.assign.assignto->filename);
+        };
+        add_variable_in_global_scope((TC_Variable){ast->data.assign.from->data.arg.value, expected, false});
+    }else {
+    blockarea:
+        add_variable_in_current_scope((TC_Variable){ast->data.assign.from->data.arg.value, expected, false});
+    }
+    typechecker_eat(typechecker, ast->data.assign.from);
+
+    AST_TypeInfo found = fetch_type(typechecker, (ast->data.assign.assignto));
+    typechecker_eat(typechecker, ast->data.assign.assignto);
+    if (ast->data.assign.assignto->type != AST_UNKNOWN && found.kind != KIND_CONST && found.kind != KIND_AUTO){
+        if (!are_equal(&expected, &found)){
+            char string[100];
+            snprintf(string, 100, "Variable is supposed to be of type %s but is assigned to object of type %s", typeinfo_to_string(expected), typeinfo_to_string(found));
+            error_generate_parser("VarError", string, ast->row, ast->col, ast->filename);
+        };
+    }
+};
+
+void typechecker_eat_funcall(Typechecker *typechecker, AST *ast){
+    TC_Func func = (TC_Func){};
+    int a = 0;
+    for (int i=0; i<typechecker->functionlen; i++){
+        if (strcmp(ast->data.funcall.name, typechecker->functions[i].name) == 0){
+            func = typechecker->functions[i];
+            a = 1;
+        };
+    };
+    for (int i=0; i<externlen; i++){
+        if (strcmp(externs[i], ast->data.funcall.name) == 0){
+            ast->data.funcall.name -= 1;
+            ast->data.funcall.name[0] = '_';
+            a = 2;
+        };
+    }
+    if (a == 0){
+        char string[100];
+        snprintf(string, 100, "Function %s doesn't exist", ast->data.funcall.name);
+        error_generate_parser("FuncError", string, ast->row, ast->col, ast->filename);
+    };
+    if (a != 2){
+        if (ast->data.funcall.argslen != func.arglen){
+            char string[100];
+            snprintf(string, 100, "Too many or too little arguments sent to function %s", ast->data.funcall.name);
+            error_generate_parser("FuncError", string, ast->row, ast->col, ast->filename);
+        };
+        for (int i=0; i<ast->data.funcall.argslen; i++){
+            AST *arg = ast->data.funcall.args[i];
+            typechecker_eat(typechecker, arg);
+            AST_TypeInfo left = fetch_type(typechecker, arg);
+            AST_TypeInfo right = func.args[i];
+            if (!are_equal(&left, &right)) {
+                char string[100];
+                snprintf(string, 100, "In function \"%s\", argument type \"%s\" is expected, but argument of type \"%s\" is given", ast->data.funcall.name, typeinfo_to_string(right), typeinfo_to_string(left));
+                error_generate_parser("ArgError", string, ast->row, ast->col, ast->filename);
+            };
+        };
+    }
+}
+
+void typechecker_eat_index(Typechecker *typechecker, AST *ast){
+    if (strcmp(typeinfo_to_string(ast->data.expr.left->typeinfo), "char*") == 0){
+        ast->type = AST_DEREF;
+        AST *astleft = ast->data.expr.left;
+        AST *astright = ast->data.expr.right;
+        ast->data.expr.left = malloc(sizeof(AST));
+        *(ast->data.expr.left) = (AST){0};
+        ast->data.expr.left->type = AST_PLUS;
+        ast->data.expr.left->data.expr.left = astleft;
+        ast->data.expr.left->data.expr.right = astright;
+        typechecker_eat(typechecker, ast);
+    }
+}
+
+void typechecker_eat_syscall(Typechecker *typechecker, AST *ast){
+    for (int i=0; i<ast->data.funcall.argslen; i++){
+        AST *arg = ast->data.funcall.args[i];
+        typechecker_eat(typechecker, arg);
+    };
+}
+
+void typechecker_eat_ret(Typechecker *typechecker, AST *ast){
+    typechecker_eat(typechecker, ast->data.ret.ret);
+}
+
+void typechecker_eat_binary(Typechecker *typechecker, AST *ast){
+    typechecker_eat(typechecker, ast->data.expr.left);
+    typechecker_eat(typechecker, ast->data.expr.right);
+    AST_TypeInfo type1 = fetch_type(typechecker, (ast->data.expr.left));
+    AST_TypeInfo type2 = fetch_type(typechecker, (ast->data.expr.right));
+    ast->typeinfo = fetch_type(typechecker, ast);
+};
+
+void typechecker_eat_comparison(Typechecker *typechecker, AST *ast){
+    typechecker_eat(typechecker, ast->data.expr.left);
+    typechecker_eat(typechecker, ast->data.expr.right);
+    ast->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
+};
+
+void typechecker_eat_unary(Typechecker *typechecker, AST *ast){
+    typechecker_eat(typechecker, ast->data.expr.left);
+}
+
+void typechecker_eat_if(Typechecker *typechecker, AST *ast){
+    typechecker_eat(typechecker, ast->data.if1.block.condition);
+    for (int i=0; i<ast->data.if1.block.statementlen; i++){
+        typechecker_eat(typechecker, ast->data.if1.block.statements[i]);
+    };
+};
+
+void typechecker_eat_while(Typechecker *typechecker, AST *ast){
+    typechecker_eat(typechecker, ast->data.while1.condition);
+    for (int i=0; i<ast->data.while1.blocklen; i++){
+        typechecker_eat(typechecker, ast->data.while1.block[i]);
+    };
+};
+
+void typechecker_eat_binary_comparison(Typechecker *typechecker, AST *ast){
+    typeinfo(ast, KIND_BOOL, 0);
+    typechecker_eat(typechecker, ast->data.expr.left);
+    typechecker_eat(typechecker, ast->data.expr.right);
+    char *type1 = typeinfo_to_string(ast->data.expr.left->typeinfo);
+    char *type2 = typeinfo_to_string(ast->data.expr.right->typeinfo);
+    if (strcmp(type1, "bool") || strcmp(type2, "bool")) {
+        char a[1000];
+        snprintf(a, 1000, "Expected boolean types, found types \"%s\" and \"%s\"", type1, type2);
+        char string[100];
+        snprintf(string, 100, "%sError", ast->type == AST_AND ? "And" : ast->type == AST_OR ? "Or" : "Comparison");
+        error_generate_parser(strdup(string), a, ast->row, ast->col, ast->filename);
+    }
+}
+
 void typechecker_eat(Typechecker *typechecker, AST *ast){
     ast->typeinfo = fetch_type(typechecker, ast);
 
     if (ast->type == AST_FUNCDEF){
-        AST_TypeInfo expected = ast->typeinfo;
-        typechecker->functions[typechecker->functionlen].name = ast->data.funcdef.name;
-        typechecker->functions[typechecker->functionlen].args = malloc(sizeof(AST_TypeInfo) * 100);
-        typechecker->functions[typechecker->functionlen].arglen = ast->data.funcdef.argslen;
-        typechecker->functions[typechecker->functionlen].ret = ast->typeinfo;
-        typechecker->functions[typechecker->functionlen].scope = initialize_scope();
-        if (current_scope != NULL) free(current_scope);
-        current_scope = malloc(sizeof(TC_Scope));
-        *current_scope = typechecker->functions[typechecker->functionlen].scope;
-        for (int i=0; i<ast->data.funcdef.argslen; i++){
-            add_variable_in_current_scope((TC_Variable){ast->data.funcdef.args[i]->arg, ast->data.funcdef.args[i]->type, true});
-            typechecker->functions[typechecker->functionlen].args[i] = ast->data.funcdef.args[i]->type;
-        };
-        typechecker->functionlen++;
-
-        AST *cur = ast->data.funcdef.block;
-        for (int i=0; i<ast->data.funcdef.blocklen; i++){
-            typechecker_eat(typechecker, cur);
-            cur = cur->next;
-        };
-
-        AST_TypeInfo found = (AST_TypeInfo){"", KIND_UNKNOWN, 0};
-        int a = 0;
-        cur = ast->data.funcdef.block;
-        // printf("{%d, %d}\n", cur->type, ast->data.funcdef.blocklen);
-        for (int i=0; i<ast->data.funcdef.blocklen; i++){
-            if (cur->type == AST_RET){
-                found = fetch_type(typechecker, cur);
-                a = 1;
-                if(!are_equal(&expected, &found)){
-                    char string[100];
-                    snprintf(string, 100, "Function expects a return type of %s, but return is found returning %s", typeinfo_to_string(expected), typeinfo_to_string(found));
-                    error_generate_parser("ReturnError", string, ast->row, ast->col, ast->filename);
-                };
-            };
-            cur = cur->next;
-        };
-        if (a == 0){
-            char string[100];
-            snprintf(string, 100, "No return found in function \"%s\" that doesn't return void", ast->data.funcdef.name);
-            error_generate_parser("ReturnError", string, ast->row, ast->col, ast->filename);
-        };
+        typechecker_eat_function(typechecker, ast);
     }else if(ast->type == AST_INDEX){
-        if (strcmp(typeinfo_to_string(ast->data.expr.left->typeinfo), "char*") == 0){
-            ast->type = AST_DEREF;
-            AST *astleft = ast->data.expr.left;
-            AST *astright = ast->data.expr.right;
-            ast->data.expr.left = malloc(sizeof(AST));
-            *(ast->data.expr.left) = (AST){0};
-            ast->data.expr.left->type = AST_PLUS;
-            ast->data.expr.left->data.expr.left = astleft;
-            ast->data.expr.left->data.expr.right = astright;
-            typechecker_eat(typechecker, ast);
-        }
-        return;
+        typechecker_eat_index(typechecker, ast);
     }else if(ast->type == AST_ASSIGN){
-        bool is_block = typechecker->iter && typechecker->iter->type == AST_ASSIGN;
-        AST_TypeInfo expected = ast->typeinfo;
-        if (strcmp(typeinfo_to_string(expected), "unknown") == 0){
-            int *p = malloc(sizeof(int));
-            expected = find_variable_in_scopes(typechecker, ast->data.assign.from, p, 0).type;
-            if (expected.type == 0 && var_auto == 1){
-                expected = (AST_TypeInfo){"", KIND_AUTO, 0};
-                ast->typeinfo = expected;
-                ast->data.assign.new = true;
-                goto blockarea;
-            }
-            if (*p == 2 && is_block){
-                error_generate_parser("GlobalVarError", "Global variables cannot be re-assigned.", ast->data.assign.from->row, ast->data.assign.from->col, ast->data.assign.from->filename);
-            }
-            ast->typeinfo = expected;
-        }else if(is_block){
-            if (ast->data.assign.from->type != AST_VAR){
-                error_generate_parser("GlobalVarError", "Global variables cannot be assined to anything other than a variable.", ast->data.assign.from->row, ast->data.assign.from->col, ast->data.assign.from->filename);
-            };
-            if (!is_immediate(ast->data.assign.assignto)){
-                error_generate_parser("GlobalVarError", "Global variables cannot be set to a non-constant value.", ast->data.assign.assignto->row, ast->data.assign.assignto->col, ast->data.assign.assignto->filename);
-            };
-            add_variable_in_global_scope((TC_Variable){ast->data.assign.from->data.arg.value, expected, false});
-        }else {
-        blockarea:
-            add_variable_in_current_scope((TC_Variable){ast->data.assign.from->data.arg.value, expected, false});
-        }
-        typechecker_eat(typechecker, ast->data.assign.from);
-
-        AST_TypeInfo found = fetch_type(typechecker, (ast->data.assign.assignto));
-        typechecker_eat(typechecker, ast->data.assign.assignto);
-        if (ast->data.assign.assignto->type != AST_UNKNOWN && found.kind != KIND_CONST && found.kind != KIND_AUTO){
-            if (!are_equal(&expected, &found)){
-                char string[100];
-                snprintf(string, 100, "Variable is supposed to be of type %s but is assigned to object of type %s", typeinfo_to_string(expected), typeinfo_to_string(found));
-                error_generate_parser("VarError", string, ast->row, ast->col, ast->filename);
-            };
-        }
+        typechecker_eat_assign(typechecker, ast);
     }else if(ast->type == AST_FUNCALL){
-        TC_Func func = (TC_Func){};
-        int a = 0;
-        for (int i=0; i<typechecker->functionlen; i++){
-            if (strcmp(ast->data.funcall.name, typechecker->functions[i].name) == 0){
-                func = typechecker->functions[i];
-                a = 1;
-            };
-        };
-        for (int i=0; i<externlen; i++){
-            if (strcmp(externs[i], ast->data.funcall.name) == 0){
-                ast->data.funcall.name -= 1;
-                ast->data.funcall.name[0] = '_';
-                a = 2;
-            };
-        }
-        if (a == 0){
-            char string[100];
-            snprintf(string, 100, "Function %s doesn't exist", ast->data.funcall.name);
-            error_generate_parser("FuncError", string, ast->row, ast->col, ast->filename);
-        };
-        if (a != 2){
-            if (ast->data.funcall.argslen != func.arglen){
-                char string[100];
-                snprintf(string, 100, "Too many or too little arguments sent to function %s", ast->data.funcall.name);
-                error_generate_parser("FuncError", string, ast->row, ast->col, ast->filename);
-            };
-            for (int i=0; i<ast->data.funcall.argslen; i++){
-                AST *arg = ast->data.funcall.args[i];
-                typechecker_eat(typechecker, arg);
-                AST_TypeInfo left = fetch_type(typechecker, arg);
-                AST_TypeInfo right = func.args[i];
-                if (!are_equal(&left, &right)) {
-                    char string[100];
-                    snprintf(string, 100, "In function \"%s\", argument type \"%s\" is expected, but argument of type \"%s\" is given", ast->data.funcall.name, typeinfo_to_string(right), typeinfo_to_string(left));
-                    error_generate_parser("ArgError", string, ast->row, ast->col, ast->filename);
-                };
-            };
-        }
+        typechecker_eat_funcall(typechecker, ast);
     }else if(ast->type == AST_SYSCALL){
-        for (int i=0; i<ast->data.funcall.argslen; i++){
-            AST *arg = ast->data.funcall.args[i];
-            typechecker_eat(typechecker, arg);
-        };
+        typechecker_eat_syscall(typechecker, ast);
     }else if(ast->type == AST_RET){
-        typechecker_eat(typechecker, ast->data.ret.ret);
+        typechecker_eat_ret(typechecker, ast);
     }else if(ast->type == AST_PLUS || ast->type == AST_SUB || ast->type == AST_MUL || ast->type == AST_DIV || ast->type == AST_MODULO){
-        typechecker_eat(typechecker, ast->data.expr.left);
-        typechecker_eat(typechecker, ast->data.expr.right);
-        AST_TypeInfo type1 = fetch_type(typechecker, (ast->data.expr.left));
-        AST_TypeInfo type2 = fetch_type(typechecker, (ast->data.expr.right));
-        ast->typeinfo = fetch_type(typechecker, ast);
-        if (strcmp(typeinfo_to_string(type1), typeinfo_to_string(type2)) == 0){
-            ;
-        }
+        typechecker_eat_binary(typechecker, ast);
+
     }else if (ast->type == AST_GT || ast->type == AST_GTE || ast->type == AST_LT || ast->type == AST_LTE || ast->type == AST_EQ || ast->type == AST_NEQ){
-        typechecker_eat(typechecker, ast->data.expr.left);
-        typechecker_eat(typechecker, ast->data.expr.right);
-        ast->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
-        return;
+        typechecker_eat_comparison(typechecker, ast);
     }else if(ast->type == AST_CAST){
-        typechecker_eat(typechecker, ast->data.expr.left);
+        typechecker_eat_unary(typechecker, ast);
     }else if(ast->type == AST_DEREF){
-        typechecker_eat(typechecker, ast->data.expr.left);
+        typechecker_eat_unary(typechecker, ast);
     }else if(ast->type == AST_REF){
-        typechecker_eat(typechecker, ast->data.expr.left);
+        typechecker_eat_unary(typechecker, ast);
     }else if(ast->type == AST_IF){
-        typechecker_eat(typechecker, ast->data.if1.block.condition);
-        for (int i=0; i<ast->data.if1.block.statementlen; i++){
-            typechecker_eat(typechecker, ast->data.if1.block.statements[i]);
-        };
+        typechecker_eat_if(typechecker, ast);
     }else if(ast->type == AST_WHILE){
-        typechecker_eat(typechecker, ast->data.while1.condition);
-        for (int i=0; i<ast->data.while1.blocklen; i++){
-            typechecker_eat(typechecker, ast->data.while1.block[i]);
-        };
+        typechecker_eat_while(typechecker, ast);
     }else if(ast->type == AST_EXPR){
-        typechecker_eat(typechecker, ast->data.expr.left);
+        typechecker_eat_unary(typechecker, ast);
         ast->typeinfo = ast->data.expr.left->typeinfo;
     }else if(ast->type == AST_NOT){
-        ast->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
+        typechecker_eat_unary(typechecker, ast);
+        typeinfo(ast, KIND_BOOL, 0);
     }else if(ast->type == AST_VAR){
         return;
     }else if(ast->type == AST_AND){
-        ast->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
-        typechecker_eat(typechecker, ast->data.expr.left);
-        typechecker_eat(typechecker, ast->data.expr.right);
-        char *type1 = typeinfo_to_string(ast->data.expr.left->typeinfo);
-        char *type2 = typeinfo_to_string(ast->data.expr.right->typeinfo);
-        if (strcmp(type1, "bool") || strcmp(type2, "bool")) {
-            char a[1000];
-            snprintf(a, 1000, "Expected boolean types, found types \"%s\" and \"%s\"", type1, type2);
-            error_generate_parser("AndError", a, ast->row, ast->col, ast->filename);
-        }
+        typechecker_eat_binary_comparison(typechecker, ast);
     }else if(ast->type == AST_OR){
-        ast->typeinfo = (AST_TypeInfo){"", KIND_BOOL, 0};
-        typechecker_eat(typechecker, ast->data.expr.left);
-        typechecker_eat(typechecker, ast->data.expr.right);
-        char *type1 = typeinfo_to_string(ast->data.expr.left->typeinfo);
-        char *type2 = typeinfo_to_string(ast->data.expr.right->typeinfo);
-        if (strcmp(type1, "bool") || strcmp(type2, "bool")) {
-            char a[1000];
-            snprintf(a, 1000, "Expected boolean types, found types \"%s\" and \"%s\"", type1, type2);
-            error_generate_parser("AndError", a, ast->row, ast->col, ast->filename);
-        }
+        typechecker_eat_binary_comparison(typechecker, ast);
     }else if(ast->type == AST_MODE){
         typechecker_mode(typechecker, ast);
     }
