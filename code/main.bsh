@@ -1,4 +1,6 @@
 #!include "std.bsh"
+hello
+#!flat
 #!autovar on
 
 var fibonacci(var n) {
@@ -19,7 +21,6 @@ var fibonacci(var n) {
     return b;
 }
 
-#!flat
 print("Fibonacci(10) = ")
 print(long_to_string(fibonacci(10)))
 print("\n")

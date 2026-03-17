@@ -683,36 +683,16 @@ AST *parser_eat_ast(Parser *parser){
 }
 
 AST *parser_eat_body(Parser *parser){
+    Parser oldparser = *parser;
     int av = parser->cur;
     AST *ast = malloc(sizeof(AST));
     *ast = (AST){0};
     parser_location(parser, ast);
     ast->next = NULL;
-    int orig_cur = parser->cur;
     if (try_parse_mode(parser, ast) == 0){
         return ast;
     };
 
-parse_flat:
-    parser->cur = orig_cur;
-    if (is_flat == 1){
-        AST *ast_new = parser_eat_ast(parser);
-        if (ast_new == NULL){
-            ast->type = AST_UNKNOWN;
-            return ast;
-        }else {
-            free(ast);
-            if (top_level_len == 0){
-                top_level = ast_new;
-                top_level_cur = top_level;
-            }else {
-                top_level_cur->next = ast_new;
-                top_level_cur = ast_new;
-            }
-            top_level_len++;
-            return parser_eat_body(parser);
-        }
-    }
     ast->type = AST_UNKNOWN;
     if (parser->tokens[parser->cur].type == TOKEN_ID){
         if(is_type(parser, parser->tokens[parser->cur]) == 0){
@@ -743,19 +723,19 @@ parse_flat:
                 if (parser->tokens[parser->cur].type != TOKEN_RP){
                     if(parser_is(parser, TOKEN_COMMA)){
                         parser_peek(parser);
-                    }else {
+                    }else if (is_flat == 1){
                         goto parse_flat;
                     }
                 };
             };
             if(parser_is(parser, TOKEN_RP)){
                 parser_peek(parser);
-            }else {
+            }else if (is_flat == 1){
                 goto parse_flat;
             }
             if(parser_is(parser, TOKEN_LB)){
                 parser_peek(parser);
-            }else {
+            }else if (is_flat == 1){
                 goto parse_flat;
             }
             Token prev = (Token){0};
@@ -787,13 +767,37 @@ parse_flat:
             ast->data.funcdef.block = head;
             ast->data.funcdef.blocklen = len;
             parser_expect(parser, TOKEN_RB);
-            }else {
+            }else if (is_flat == 1){
                 goto parse_flat;
             }
         }else {
-            error_generate_parser("SyntaxError", "Unknown identifier", parser->tokens[av].row, parser->tokens[av].col, parser->name);
+            if (is_flat == 1)
+                goto parse_flat;
+            error_generate_parser("SyntaxError", "Invalid top-level statement", parser->tokens[av].row, parser->tokens[av].col, parser->name);
         };
     };
+    goto end;
+parse_flat:
+    *parser = oldparser;
+    if (is_flat == 1){
+        AST *ast_new = parser_eat_ast(parser);
+        if (ast_new == NULL){
+            ast->type = AST_UNKNOWN;
+            return ast;
+        }else {
+            free(ast);
+            if (top_level_len == 0){
+                top_level = ast_new;
+                top_level_cur = top_level;
+            }else {
+                top_level_cur->next = ast_new;
+                top_level_cur = ast_new;
+            }
+            top_level_len++;
+            return parser_eat_body(parser);
+        }
+    }
+end:
     return ast;
 
 }
