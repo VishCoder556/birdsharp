@@ -312,15 +312,16 @@ bool var_auto = 0;
 
 
 void typechecker_mode(Typechecker *typechecker, AST *ast){
-    if (strcmp(ast->data.mode.name, "extern") == 0){
+    if (strcmp(ast->data.mode.name, "link.extern") == 0){
         externs[externlen++] = ast->data.mode.res;
-    };
-    if (strcmp(ast->data.mode.name, "autovar") == 0){
-        if (strcmp(ast->data.mode.res, "on") == 0){
-            var_auto = 1;
-        }else {
-            var_auto = 0;
-        }
+    }else if (strcmp(ast->data.mode.name, "declaration.var.auto") == 0){
+        var_auto = 1;
+    }else if (strcmp(ast->data.mode.name, "declaration.var.strict") == 0){
+        var_auto = 0;
+    }else {
+        char string[230];
+        snprintf(string, 230, "Unknown mode '%s'", ast->data.mode.name);
+        error_generate_parser("ModeError", strdup(string), ast->row, ast->col, ast->filename);
     }
 };
 
@@ -513,7 +514,7 @@ void typechecker_eat_binary_comparison(Typechecker *typechecker, AST *ast){
     typechecker_eat(typechecker, ast->data.expr.right);
     char *type1 = typeinfo_to_string(ast->data.expr.left->typeinfo);
     char *type2 = typeinfo_to_string(ast->data.expr.right->typeinfo);
-    if (strcmp(type1, "bool") || strcmp(type2, "bool")) {
+    if (strcmp(type1, "bool") != 0 || strcmp(type2, "bool") != 0) {
         char a[1000];
         snprintf(a, 1000, "Expected boolean types, found types \"%s\" and \"%s\"", type1, type2);
         char string[100];

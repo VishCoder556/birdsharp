@@ -1,6 +1,6 @@
 #!include "std.bsh"
-#!flat
-#!autovar on
+#!scope.flat
+#!declaration.var.auto
 
 var fibonacci(var n) {
     if (n < 2) {

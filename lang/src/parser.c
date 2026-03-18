@@ -89,9 +89,41 @@ bool is_flat = 0;
 AST *_main = NULL;
 
 
+char *shorthand_mode(char *mode){
+    if (strcmp(mode, "flat") == 0){
+        return "scope.flat";
+    }else if (strcmp(mode, "full") == 0){
+        return "scope.full";
+    }else if (strcmp(mode, "extern") == 0){
+        return "link.extern";
+    }else if (strcmp(mode, "autovar") == 0){
+        return "declaration.var.auto";
+    }else if (strcmp(mode, "fixedvar") == 0){
+        return "declaration.var.strict";
+    }
+    return mode;
+}
+
+bool is_mode(char *mode){
+    if (strcmp(mode, "scope.flat") == 0){
+        return 1;
+    }else if (strcmp(mode, "scope.full") == 0){
+        return 1;
+    }else if (strcmp(mode, "link.extern") == 0){
+        return 1;
+    }else if (strcmp(mode, "declaration.var.auto") == 0){
+        return 1;
+    }else if (strcmp(mode, "declaration.var.strict") == 0){
+        return 1;
+    }
+
+    return false;
+}
+
 AST *parser_eat_ast(Parser *parser);
 char try_parse_mode(Parser *parser, AST *ast){
     if (parser->tokens[parser->cur].type == TOKEN_HASH){
+        Token mode_tok = parser->tokens[parser->cur];
         if (parser->cur+1 == parser->tokenlen){
             error_generate("HashError", "# not allowed this late into code");
             exit(0);
@@ -100,25 +132,41 @@ char try_parse_mode(Parser *parser, AST *ast){
         if (parser->tokens[parser->cur].type == TOKEN_EXC) {
             ast->type = AST_MODE;
             parser_peek(parser);
-            if(strcmp(parser->tokens[parser->cur].value, "flat") == 0){
+            char *mode = calloc(1, 256);
+            while (true) {
+                strcat(mode, parser->tokens[parser->cur].value);
+                parser_peek(parser);
+                if (parser->tokens[parser->cur].type != TOKEN_DOT) {
+                    break;
+                }
+                strcat(mode, ".");
+                parser_peek(parser); 
+                if (parser->tokens[parser->cur].type != TOKEN_ID) {
+                    Token tok = parser->tokens[parser->cur];
+                    error_generate_parser("ModeError", "Expected name after dot", tok.row, tok.col, tok.name);
+                }
+            }
+
+            ast->data.mode.name = shorthand_mode(mode);
+            if (!is_mode(ast->data.mode.name)){
+                char string[100];
+                snprintf(string, 100, "Found unknown mode with name '%s'", ast->data.mode.name);
+                error_generate_parser("ModeError", string, mode_tok.row, mode_tok.col, mode_tok.name);
+            }
+
+
+            if(strcmp(ast->data.mode.name, "scope.flat") == 0){
                 is_flat = 1;
                 if (top_level == NULL)
-                    top_level = malloc(sizeof(AST));
-                parser_peek(parser);
+                    top_level = calloc(1, sizeof(AST));
                 return -1; // ignore as mode
-            }else if(strcmp(parser->tokens[parser->cur].value, "round") == 0){
+            }else if(strcmp(ast->data.mode.name, "scope.full") == 0){
                 is_flat = 0;
-                parser_peek(parser);
                 return -1; // ignore as mode
-            };
-            ast->data.mode.name = parser->tokens[parser->cur].value;
-            if (parser->cur+1 == parser->tokenlen){
-                error_generate("HashError", "# not allowed this late into code");
-                exit(0);
+            }else if(strcmp(ast->data.mode.name, "link.extern") == 0){
+                ast->data.mode.res = parser->tokens[parser->cur].value;
+                parser_peek(parser);
             }
-            parser_peek(parser);
-            ast->data.mode.res = parser->tokens[parser->cur].value;
-            parser_peek(parser);
             return 0;
         }else {
             parser->cur-=2;

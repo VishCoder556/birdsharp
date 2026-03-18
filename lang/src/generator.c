@@ -98,8 +98,6 @@ void generator_close(Generator *generator){
     fclose(generator->output->file);
 }
 
-
-// #define generator_init(typechecker, file, prefix) _generator_init(typechecker, file, (Generator_Functions){.init=prefix##_init, .generate_ast=prefix##_generate_ast, .close=prefix##_close})
 Generator *_generator_make(Typechecker *typechecker, Generator_Functions functions){
     char *_ir = find_ir();
     Generator *generator = _generator_init(typechecker, _ir, functions);
