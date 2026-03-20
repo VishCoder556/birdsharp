@@ -76,9 +76,9 @@ return 0
 ```
 
 List of all modes that exist:
-1. **`#!include` (Preprocessor Mode) **
+1. **`#!include` (Preprocessor Mode)**
     * Copy and pastes a file directly into the input.
-2. **`#!scope.flat` (Parsing Mode) **
+2. **`#!scope.flat` (Parsing Mode)**
     * Removes the need for a main function, allows top.
 3. **`#!declaration.var.auto` (Typechecking Mode)**
     * Allows variable to be initialized without a type (i.e. `a = 5`).
