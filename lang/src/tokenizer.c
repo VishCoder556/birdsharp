@@ -10,46 +10,99 @@ void error_generate_parser(char *type, char *name, int l, int c, char *f){
     exit(-1);
 };
 
+void tokenizer_ensure_capacity(Tokenizer *tokenizer, int required_len) {
+    if (required_len >= tokenizer->tokencap) {
+        while (tokenizer->tokencap <= required_len) {
+            tokenizer->tokencap = (tokenizer->tokencap == 0) ? 32 : tokenizer->tokencap * 2;
+        }
+
+        Token *new_tokens = realloc(tokenizer->tokens, tokenizer->tokencap * sizeof(Token));
+        if (new_tokens == NULL) {
+            fprintf(stderr, "Fatal: Out of Memory during reallocation\n");
+            exit(1);
+        }
+        tokenizer->tokens = new_tokens;
+    }
+}
+
+void tokenizer_insert_at(Tokenizer *tokenizer, int index, Token *new_tokens, int count, int tokens_to_remove) {
+    int new_total_len = tokenizer->tokenlen + count - tokens_to_remove;
+    
+    tokenizer_ensure_capacity(tokenizer, new_total_len);
+
+    int tail_start = index + tokens_to_remove;
+    int tail_len = tokenizer->tokenlen - tail_start;
+    
+    if (tail_len > 0) {
+        memmove(&tokenizer->tokens[index + count], 
+                &tokenizer->tokens[tail_start], 
+                tail_len * sizeof(Token));
+    }
+
+    if (count > 0) {
+        memcpy(&tokenizer->tokens[index], new_tokens, count * sizeof(Token));
+    }
+
+    tokenizer->tokenlen = new_total_len;
+}
+
+void _tokenizer_append(Tokenizer *tokenizer, Token tok) {
+    tokenizer_ensure_capacity(tokenizer, tokenizer->tokenlen);
+    tokenizer->tokens[tokenizer->tokenlen++] = tok;
+}
+
+void tokenizer_append(Tokenizer *tokenizer, int type, char *name) {
+    Token tok = (Token){0};
+    tok.type = type;
+    strncpy(tok.value, name, 89);
+    tok.value[89] = '\0';
+    tok.row = tokenizer->line;
+    tok.col = tokenizer->col;
+    tok.name = tokenizer->name;
+
+    _tokenizer_append(tokenizer, tok);
+}
+
 
 char tokenizer_token(Tokenizer *tokenizer){
     char c = tokenizer->code[tokenizer->cur];
     int prevCol = tokenizer->col;
     int prevRow = tokenizer->line;
     if (c == '\0'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_EOF, "\0", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_EOF, "\0");
         return -1;
     }
     if (c == '('){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_LP, "(", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_LP, "(");
     }else if (c == ')'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_RP, ")", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_RP, ")");
     }else if (c == '|'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_PIPE, "|", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_PIPE, "|");
     }else if (c == '{'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_LB, "{", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_LB, "{");
     }else if (c == ','){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_COMMA, ",", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_COMMA, ",");
     }else if (c == '}'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_RB, "}", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_RB, "}");
     }else if (c == '='){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_EQ, "=", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_EQ, "=");
     }else if (c == ';'){
     }else if (c == '#'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_HASH, "#", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_HASH, "#");
     }else if (c == '$'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_DOLLAR, "$", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_DOLLAR, "$");
     }else if (c == '<'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_LT, "<", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_LT, "<");
     }else if (c == '>'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_GT, ">", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_GT, ">");
     }else if (c == '+'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_PLUS, "+", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_PLUS, "+");
     }else if (c == '['){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_LBRACKET, "[", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_LBRACKET, "[");
     }else if (c == ']'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_RBRACKET, "]", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_RBRACKET, "]");
     }else if (c == '*'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_MUL, "*", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_MUL, "*");
     }else if (c == '/'){
         if (tokenizer->code[tokenizer->cur+1] == '/'){
             tokenizer->cur += 2;
@@ -80,18 +133,18 @@ char tokenizer_token(Tokenizer *tokenizer){
             tokenizer->cur++;
             return tokenizer_token(tokenizer);
         };
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_DIV, "/", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_DIV, "/");
     }else if (c == '%'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_MODULO, "%", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_MODULO, "%");
     }else if(c == '.'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_DOT, ".", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_DOT, ".");
     }else if(c == '&'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_AMP, "&", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_AMP, "&");
     }else if (c == '-'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_SUB, "-", tokenizer->line, tokenizer->col, tokenizer->name};
+        tokenizer_append(tokenizer, TOKEN_SUB, "-");
     }else if (c == '!'){
-        tokenizer->tokens[tokenizer->tokenlen++] = (Token){TOKEN_EXC, "!", tokenizer->line, tokenizer->col, tokenizer->name};
-    } else if (c == '\''){
+        tokenizer_append(tokenizer, TOKEN_EXC, "!");
+    } else if (c == '\'') {
         tokenizer->cur+=2;
         tokenizer->col += 2;
         char buf[3];
@@ -119,10 +172,7 @@ char tokenizer_token(Tokenizer *tokenizer){
             tokenizer->cur++;
             tokenizer->col++;
         }
-        tokenizer->tokens[tokenizer->tokenlen].type = TOKEN_CHAR;strcpy(tokenizer->tokens[tokenizer->tokenlen].value, buf);
-        tokenizer->tokens[tokenizer->tokenlen].row = tokenizer->line;
-        tokenizer->tokens[tokenizer->tokenlen].col = tokenizer->col;
-        tokenizer->tokens[tokenizer->tokenlen].name = tokenizer->name;tokenizer->tokenlen++;
+        tokenizer_append(tokenizer, TOKEN_CHAR, buf);
     }else if(c == '\"'){
         tokenizer->cur++;
         tokenizer->col++;
@@ -156,11 +206,7 @@ char tokenizer_token(Tokenizer *tokenizer){
             error_generate_parser("SyntaxError", "Abrupt end", tokenizer->line, prevCol, tokenizer->name);
         };
         string[stringlen++] = '\0';
-        tokenizer->tokens[tokenizer->tokenlen].type = TOKEN_STRING;strcpy(tokenizer->tokens[tokenizer->tokenlen].value, string);
-        tokenizer->tokens[tokenizer->tokenlen].row = tokenizer->line;
-        tokenizer->tokens[tokenizer->tokenlen].col = tokenizer->col;
-        tokenizer->tokens[tokenizer->tokenlen].name = tokenizer->name;
-        tokenizer->tokenlen++;
+        tokenizer_append(tokenizer, TOKEN_STRING, string);
     }else if(isalpha(c) || c == '_'){
         char res[200];int reslen=0;
         int _isSyscall = 0;
@@ -184,17 +230,13 @@ char tokenizer_token(Tokenizer *tokenizer){
         res[reslen] = '\0';
         tokenizer->cur--;
         tokenizer->col--;
-        tokenizer->tokens[tokenizer->tokenlen].type = TOKEN_ID;strcpy(tokenizer->tokens[tokenizer->tokenlen].value, res);
-        tokenizer->tokens[tokenizer->tokenlen].row = tokenizer->line;
-        tokenizer->tokens[tokenizer->tokenlen].col = tokenizer->col;
-        tokenizer->tokens[tokenizer->tokenlen].name = tokenizer->name;tokenizer->tokenlen++;
-        if (strcmp(tokenizer->tokens[tokenizer->tokenlen-1].value, "true") == 0){
-            tokenizer->tokens[tokenizer->tokenlen-1].type = TOKEN_INT;
-            strcpy(tokenizer->tokens[tokenizer->tokenlen-1].value, "true");
-        }else if (strcmp(tokenizer->tokens[tokenizer->tokenlen-1].value, "false") == 0){
-            tokenizer->tokens[tokenizer->tokenlen-1].type = TOKEN_INT;
-            strcpy(tokenizer->tokens[tokenizer->tokenlen-1].value, "false");
-        };
+        if (strcmp(res, "true") == 0){
+            tokenizer_append(tokenizer, TOKEN_INT, "true");
+        }else if (strcmp(res, "false") == 0){
+            tokenizer_append(tokenizer, TOKEN_INT, "true");
+        }else {
+            tokenizer_append(tokenizer, TOKEN_ID, res);
+        }
     }else if(isnumber(c)){
         char res[200];int reslen=0;
         while (isnumber(c)){
@@ -205,17 +247,11 @@ char tokenizer_token(Tokenizer *tokenizer){
         };
         res[reslen] = '\0';
         if (tokenizer->code[tokenizer->cur] == 'f'){
-            tokenizer->tokens[tokenizer->tokenlen].type = TOKEN_FLOAT;strcpy(tokenizer->tokens[tokenizer->tokenlen].value, res);
-            tokenizer->tokens[tokenizer->tokenlen].row = tokenizer->line;
-            tokenizer->tokens[tokenizer->tokenlen].col = tokenizer->col;
-            tokenizer->tokens[tokenizer->tokenlen].name = tokenizer->name;tokenizer->tokenlen++;
+            tokenizer_append(tokenizer, TOKEN_FLOAT, res);
         }else {
             tokenizer->cur--;
             tokenizer->col--;
-            tokenizer->tokens[tokenizer->tokenlen].type = TOKEN_INT;strcpy(tokenizer->tokens[tokenizer->tokenlen].value, res);
-            tokenizer->tokens[tokenizer->tokenlen].row = tokenizer->line;
-            tokenizer->tokens[tokenizer->tokenlen].col = tokenizer->col;
-            tokenizer->tokens[tokenizer->tokenlen].name = tokenizer->name;tokenizer->tokenlen++;
+            tokenizer_append(tokenizer, TOKEN_INT, res);
         }
     }else if (c == '\n') {
         tokenizer->col = 0;
@@ -230,8 +266,6 @@ char tokenizer_token(Tokenizer *tokenizer){
     } else {
         error_generate_parser("SyntaxError", "Found unknown token", tokenizer->line, prevCol, tokenizer->name);
     };
-    tokenizer->tokens[tokenizer->tokenlen-1].col = prevCol;
-    tokenizer->tokens[tokenizer->tokenlen-1].row = prevRow;
     tokenizer->cur++;
     tokenizer->col++;
     return 0;
@@ -285,7 +319,8 @@ Tokenizer *tokenizer_init(char *input_file){
     source_files[num_source_files++] = (SourceFile){tokenizer->name, tokenizer->code, size};
     fclose(f);
     tokenizer->cur = 0;
-    tokenizer->tokens = arena_alloc(&arena, sizeof(Token) * 9000);
+    tokenizer->tokencap = 1;
+    tokenizer->tokens = malloc(sizeof(Token) * tokenizer->tokencap);
     tokenizer->tokenlen = 0;
     return tokenizer;
 }

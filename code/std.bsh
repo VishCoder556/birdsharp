@@ -34,8 +34,7 @@ int write(int fd, char *str){
 }
 
 int print(char *str){
-    syscall.write(STDOUT, str, string_len(str))
-    return 0
+    return syscall.write(STDOUT, str, string_len(str))
 }
 
 int printerr(char *str){

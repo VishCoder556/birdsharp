@@ -1,26 +1,8 @@
 #!include "std.bsh"
-#!scope.flat
-#!declaration.var.auto
 
-var fibonacci(var n) {
-    if (n < 2) {
-        return n
-    }
-    a = 0;
-    b = 1;
-    i = 2;
-    temp = 0;
-    
-    while (i <= n) {
-        temp = a + b;
-        a = b;
-        b = temp;
-        i = i + 1;
-    }
-    return b;
+
+i32 main(i32 argc, char **argv){
+    int a = 5
+    print("Hello World\n")
+    return cast(i32, (3 * 4) > 1);
 }
-
-print("Fibonacci(10) = ")
-print(long_to_string(fibonacci(10)))
-print("\n")
-return 5;

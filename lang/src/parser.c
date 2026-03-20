@@ -247,9 +247,6 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         ast2->type = AST_INDEX;
         parser_location(parser, ast2);
         ast2->data.expr.left = ast;
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
         if (parser->tokens[parser->cur].type != TOKEN_RBRACKET){
@@ -282,15 +279,7 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         ast2->type = AST_MUL;
         parser_location(parser, ast2);
         ast2->data.expr.left = ast;
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end in multiplication");
-        };
         parser_peek(parser);
-        if (parser->tokens[parser->cur+1].type == TOKEN_EQ){
-            parser->cur--;
-            free(ast2);
-            return ast;
-        }
         ast2->data.expr.right = parser_eat_expr(parser);
         ast = rotate_to_left(ast2);
     }
@@ -299,9 +288,6 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         *ast2 = (AST){0};
         ast2->type = AST_DIV;
         ast2->data.expr.left = ast;
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
         ast = rotate_to_left(ast2);
@@ -311,88 +297,55 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         *ast2 = (AST){0};
         ast2->type = AST_MODULO;
         ast2->data.expr.left = ast;
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
         ast = rotate_to_left(ast2);
     }
     if (parser->tokens[parser->cur].type == TOKEN_GT){
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
-        parser_peek(parser);
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
         ast2->type = AST_GT;
-        if (parser->tokens[parser->cur].type == TOKEN_EQ){
+        if (parser->tokens[parser->cur+1].type == TOKEN_EQ){
+            parser_peek(parser);
             ast2->type = AST_GTE;
-        }else {
-            parser->cur--;
         };
         ast2->data.expr.left = ast;
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        }
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
         return ast2;
     }
     if (parser->tokens[parser->cur].type == TOKEN_LT){
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
-        parser_peek(parser);
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
         ast2->type = AST_LT;
-        if (parser->tokens[parser->cur].type == TOKEN_EQ){
+        if (parser->tokens[parser->cur+1].type == TOKEN_EQ){
+            parser_peek(parser);
             ast2->type = AST_LTE;
-        }else {
-            parser->cur--;
         };
         ast2->data.expr.left = ast;
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
         parser_peek(parser);
         ast2->data.expr.right = parser_eat_expr(parser);
         return ast2;
     }
     if (parser->tokens[parser->cur].type == TOKEN_EQ){
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
-        parser_peek(parser);
-        if (parser->tokens[parser->cur].type == TOKEN_EQ){
+        if (parser->tokens[parser->cur+1].type == TOKEN_EQ){
+            parser_peek(parser);
             AST *ast2 = malloc(sizeof(AST));
             *ast2 = (AST){0};
             ast2->type = AST_EQ;
             ast2->data.expr.left = ast;
-            if (parser->cur + 1 == parser->tokenlen){
-                error_generate("AbruptEndError", "Abrupt end");
-            };
             parser_peek(parser);
             ast2->data.expr.right = parser_eat_expr(parser);
             ast = ast2;
-        }else {
-            parser->cur--;
         };
     }
     if (parser->tokens[parser->cur].type == TOKEN_EXC){
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
         parser_peek(parser);
         if (parser->tokens[parser->cur].type == TOKEN_EQ){
             AST *ast2 = malloc(sizeof(AST));
             *ast2 = (AST){0};
             ast2->type = AST_NEQ;
             ast2->data.expr.left = ast;
-            if (parser->cur + 1 == parser->tokenlen){
-                error_generate("AbruptEndError", "Abrupt end");
-            };
             parser_peek(parser);
             ast2->data.expr.right = parser_eat_expr(parser);
             ast2->typeinfo =  (AST_TypeInfo){"", KIND_UNKNOWN, 0};
@@ -400,18 +353,12 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         };
     }
     if (parser->tokens[parser->cur].type == TOKEN_AMP) {
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
         parser_peek(parser);
         if (parser->tokens[parser->cur].type == TOKEN_AMP){
             AST *ast2 = malloc(sizeof(AST));
             *ast2 = (AST){0};
             ast2->type = AST_AND;
             ast2->data.expr.left = ast;
-            if (parser->cur + 1 == parser->tokenlen){
-                error_generate("AbruptEndError", "Abrupt end");
-            };
             parser_peek(parser);
             ast2->data.expr.right = parser_eat_expr(parser);
             ast2->typeinfo =  (AST_TypeInfo){"", KIND_BOOL, 0};
@@ -421,18 +368,12 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         }
     };
     if (parser->tokens[parser->cur].type == TOKEN_PIPE){
-        if (parser->cur + 1 == parser->tokenlen){
-            error_generate("AbruptEndError", "Abrupt end");
-        };
         parser_peek(parser);
         if (parser->tokens[parser->cur].type == TOKEN_PIPE){
             AST *ast2 = malloc(sizeof(AST));
             *ast2 = (AST){0};
             ast2->type = AST_OR;
             ast2->data.expr.left = ast;
-            if (parser->cur + 1 == parser->tokenlen){
-                error_generate("AbruptEndError", "Abrupt end");
-            };
             parser_peek(parser);
             ast2->data.expr.right = parser_eat_expr(parser);
             ast2->typeinfo =  (AST_TypeInfo){"", KIND_BOOL, 0};
@@ -479,7 +420,7 @@ AST *parser_eat_expr(Parser *parser){
             ast_arg(ast, AST_INT, strdup(a));
             typeinfo(ast, KIND_CONST, 0);
 
-            parser->cur++;
+            parser_peek(parser);
         }else {
             error_generate_parser("AbruptEndError", "Found negative sign alone", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->name);
         }
@@ -508,8 +449,9 @@ AST *parser_eat_expr(Parser *parser){
             ast->type = AST_FUNCALL;
             ast->data.funcall = (AST_FuncCall){};
             ast->data.funcall.args = malloc(sizeof(AST*) * 100);
+            int id = parser->cur;
             parser_expect(parser, TOKEN_ID);
-            ast->data.funcall.name = parser->tokens[parser->cur-1].value;
+            ast->data.funcall.name = parser->tokens[id].value;
             parser_expect(parser, TOKEN_LP);
             if (strcmp(ast->data.funcall.name, "cast") == 0){
                 ast->type = AST_CAST;
@@ -568,9 +510,6 @@ AST *parser_eat_ast(Parser *parser){
     if (parser->tokens[parser->cur].type == TOKEN_ID){
         if(strcmp(parser->tokens[parser->cur].value, "if") == 0){
             ast->type = AST_IF;
-            if (parser->cur + 1 >= parser->tokenlen){
-                error_generate_parser("AbruptEnd", "Sudden end to if statement", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
-            }
             
             parser_peek(parser);
             ast->data.if1.block.condition = parser_eat_expr(parser);
@@ -629,9 +568,6 @@ AST *parser_eat_ast(Parser *parser){
         }else if(strcmp(parser->tokens[parser->cur].value, "while") == 0){
                 ast->type = AST_WHILE;
                 ast->data.while1.block = malloc(sizeof(AST*) * 100);
-                if (parser->cur + 1 == parser->tokenlen){
-                    error_generate_parser("AbruptEnd", "Sudden end to while statement", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
-                }
                 parser_peek(parser);
                 ast->data.while1.condition = parser_eat_expr(parser);
                 parser_expect(parser, TOKEN_LB);
@@ -658,8 +594,9 @@ AST *parser_eat_ast(Parser *parser){
             }else if((is_type(parser, parser->tokens[parser->cur]) == 0)){
                 parse_type(parser, &ast->typeinfo);
                 ast->type = AST_ASSIGN;
+                int idnum = parser->cur;
                 parser_expect(parser, TOKEN_ID);
-                parser->cur--;
+                parser->cur = idnum;
                 ast->data.assign.new = true;
                 ast->data.assign.from = parser_eat_expr(parser);
                 ast->data.assign.from->typeinfo = ast->typeinfo;
@@ -677,7 +614,7 @@ AST *parser_eat_ast(Parser *parser){
                 ast->data.ret.ret = parser_eat_expr(parser);
             }else if(strcmp(parser->tokens[parser->cur].value, "break") == 0){
                 ast->type = AST_BREAK;
-                parser->cur++;
+                parser_peek(parser);
             }else {
                 AST *ast_expr = parser_eat_expr(parser);
                 if(parser->tokens[parser->cur].type == TOKEN_EQ){
@@ -692,15 +629,17 @@ AST *parser_eat_ast(Parser *parser){
                 }else if (parser->tokens[parser->cur].type == TOKEN_LP){
                     ast->type = AST_FUNCALL;
                     ast->data.funcall = (AST_FuncCall){0};
+                    int id = parser->cur;
                     parser_expect(parser, TOKEN_ID);
-                    ast->data.funcall.name = parser->tokens[parser->cur-1].value;
+                    ast->data.funcall.name = parser->tokens[id].value;
                     parser_expect(parser, TOKEN_LP);
                     while (parser->tokens[parser->cur].type != TOKEN_RP && parser->tokens[parser->cur].type != TOKEN_EOF){
                         ast->data.funcall.args[ast->data.funcall.argslen++] = parser_eat_expr(parser);
                         if (parser->tokens[parser->cur].type != TOKEN_COMMA && parser->tokens[parser->cur].type != TOKEN_RP){
                             error_generate("CommaError", "Expected Comma");
-                        }else if(parser->tokens[parser->cur].type == TOKEN_COMMA)
-                            parser->cur++;
+                        }else if(parser->tokens[parser->cur].type == TOKEN_COMMA){
+                            parser_peek(parser);
+                        }
                     };
                     parser_expect(parser, TOKEN_RP);
             }else {
@@ -787,21 +726,11 @@ AST *parser_eat_body(Parser *parser){
             }else if (is_flat == 1){
                 goto parse_flat;
             }
-            Token prev = (Token){0};
-            char c = 0;
 
             AST* head = NULL;
             AST* tail = NULL;
             int len = 0;
             while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                if (parser->tokens[parser->cur].type == prev.type && strcmp(parser->tokens[parser->cur].value, prev.value) == 0){
-                    c++;
-                    if (c > 5){
-                        error_generate_parser("SyntaxError", "Something went wrong in function", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
-                    }
-                }else {
-                    c = 0;
-                };
                 AST *new_node = parser_eat_ast(parser);
                 len++;
                 if (head == NULL) {
@@ -811,7 +740,6 @@ AST *parser_eat_body(Parser *parser){
                     tail->next = new_node;
                     tail = new_node;
                 }
-                prev = parser->tokens[parser->cur-1];
             };
             ast->data.funcdef.block = head;
             ast->data.funcdef.blocklen = len;

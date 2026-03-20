@@ -45,6 +45,7 @@ typedef struct Tokenizer {
     int col;
     Token *tokens;
     int tokenlen;
+    int tokencap;
 }Tokenizer;
 
 
