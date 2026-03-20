@@ -64,8 +64,8 @@ The following sample demonstrates the use of both preprocessor, parsing, and typ
 ```c
 #!include "std.bsh"
 
-#!autovar on
 #!flat
+#!autovar on
 
 a = 5
 print("Hello World\n")
@@ -75,6 +75,15 @@ print("\n")
 return 0
 ```
 
+List of all modes that exist:
+1. **`#!include` (Preprocessor Mode) **
+    * Copy and pastes a file directly into the input.
+2. **`#!scope.flat` (Parsing Mode) **
+    * Removes the need for a main function, allows top.
+3. **`#!declaration.var.auto` (Typechecking Mode)**
+    * Allows variable to be initialized without a type (i.e. `a = 5`).
+4. **`#!link.extern` (Compiling Mode)**
+    * Warns the compiler of an external dependency that will be compiled eventually.
 
 
 ## Getting Started
