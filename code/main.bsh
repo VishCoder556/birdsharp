@@ -2,5 +2,6 @@
 
 
 i32 main(i32 argc, char **argv){
+    print("Hello World\n")
     return 10;
 }

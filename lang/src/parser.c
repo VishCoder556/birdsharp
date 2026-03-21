@@ -726,7 +726,7 @@ AST *parser_eat_body(Parser *parser){
         if(is_type(parser, parser->tokens[parser->cur]) == 0){
             ast->type = AST_ASSIGN;
             parse_type(parser, &ast->typeinfo);
-            ast->data.assign.from = malloc(sizeof(struct AST));
+            ast->data.assign.from = malloc(sizeof(AST));
             *(ast->data.assign.from) = (AST){0};
             ast->data.assign.from->type = AST_VAR;
             ast->data.assign.from->data.arg.value = parser->tokens[parser->cur].value;

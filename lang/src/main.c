@@ -185,7 +185,7 @@ int main(int argc, char **argv){
 
     Tokenizer *tokenizer = tokenizer_init(input_file);
     while(tokenizer_token(tokenizer) != -1){};
-
+    tokenizer_free_code(tokenizer);
 
     clockstart("Preprocessor");
     
@@ -197,6 +197,7 @@ int main(int argc, char **argv){
     Parser *parser = parse_file(tokenizer);
 
     tokenizer_free_tokens(tokenizer);
+    tokenizer_free(tokenizer);
 
     clockstart("Typechecking");
 

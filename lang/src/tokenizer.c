@@ -25,14 +25,6 @@ void tokenizer_ensure_capacity(Tokenizer *tokenizer, int required_len) {
     }
 }
 
-void tokenizer_free(Tokenizer *tokenizer) {
-    if (!tokenizer) return;
-    if (tokenizer->tokens) {
-        free(tokenizer->tokens);
-    }
-    free(tokenizer);
-}
-
 void tokenizer_insert_at(Tokenizer *tokenizer, int index, Token *new_tokens, int count, int tokens_to_remove) {
     if (index < 0 || index > tokenizer->tokenlen || count < 0 || tokens_to_remove < 0) {
         return;
@@ -334,7 +326,7 @@ void add_idx(Token arr[], int *len, int index) {
 
 
 Tokenizer *tokenizer_init(char *input_file){
-    Tokenizer *tokenizer = arena_alloc(&arena, sizeof(Tokenizer));
+    Tokenizer *tokenizer = malloc(sizeof(Tokenizer));
     FILE *f = fopen(input_file, "r");
     if (f == NULL){
         printf("\x1b[1;31merror\x1b[0m: Invalid input file provided\n");
@@ -346,7 +338,7 @@ Tokenizer *tokenizer_init(char *input_file){
     tokenizer->line = 1;
     tokenizer->name = input_file;
     tokenizer->col = 0;
-    tokenizer->code = arena_alloc(&arena, fsize + 1);
+    tokenizer->code = malloc(fsize + 1);
     size_t size = fread(tokenizer->code, 1, fsize, f);
     tokenizer->code[size] = '\0';
     source_files[num_source_files++] = (SourceFile){tokenizer->name, tokenizer->code, size};
@@ -366,3 +358,13 @@ void tokenizer_free_tokens(Tokenizer *tokenizer) {
         tokenizer->tokencap = 0;
     }
 }
+void tokenizer_free_code(Tokenizer *tokenizer) {
+    if (tokenizer && tokenizer->code) {
+        free(tokenizer->code);
+    }
+};
+void tokenizer_free(Tokenizer *tokenizer) {
+    if (tokenizer) {
+        free(tokenizer);
+    }
+};

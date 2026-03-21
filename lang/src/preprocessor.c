@@ -109,6 +109,7 @@ char preprocess_include(Tokenizer *tokenizer, char *main_file, int i) {
     if (tokenizer2 == NULL) return 0;
 
     while (tokenizer_token(tokenizer2) != -1);
+    // tokenizer_free_code(tokenizer2);
 
     if (tokenizer2->tokenlen > 0 && tokenizer2->tokens[tokenizer2->tokenlen - 1].type == TOKEN_EOF) {
         tokenizer2->tokenlen--;
@@ -121,6 +122,7 @@ char preprocess_include(Tokenizer *tokenizer, char *main_file, int i) {
     } else {
         tokenizer_remove_at(tokenizer, i, 4);
     }
+    // tokenizer_free_tokens(tokenizer2);
     
     return 1;
 }
