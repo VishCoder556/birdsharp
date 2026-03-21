@@ -35,7 +35,8 @@ typedef enum{
     AST_NOT,
     AST_AND,
     AST_OR,
-    AST_INDEX
+    AST_INDEX,
+    AST_STRUCT
 }AST_Type;
 
 typedef struct AST AST;
@@ -53,7 +54,7 @@ typedef struct ASTs {
 
 typedef struct {
     char *name;
-    AST **args;
+    AST *args;
     int argslen;
 } AST_FuncCall;
 typedef struct {
@@ -119,7 +120,7 @@ typedef struct Argument Argument;
 
 typedef struct {
     char *name;
-    struct Argument **args;
+    struct Argument *args;
     int argslen;
     AST *block;
     int blocklen;
@@ -136,8 +137,13 @@ typedef struct {
 }AST_Mode;
 
 typedef struct {
+    AST_TypeInfo type;
+    char *name;
+}AST_StructMember;
+
+typedef struct {
     char* name;
-    struct AST** members;
+    AST_StructMember *members;
     int memberlen;
 } AST_Struct;
 

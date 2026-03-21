@@ -121,7 +121,7 @@ Compiler *x86_64_init(Reviser *reviser, char *file){
         exit(1);
     }
     compiler->f = f;
-    compiler->data = malloc(500);
+    compiler->data = malloc(5000);
     compiler->name = file;
     compiler->asts = reviser->asts;
     compiler->astlen = reviser->astlen;
@@ -135,7 +135,8 @@ Compiler *x86_64_init(Reviser *reviser, char *file){
 void x86_64_close(Compiler *compiler){
     fprintf(compiler->f, "section .data\n%s\n", compiler->data);
     fclose(compiler->f);
-    char string[100];
+    free(compiler->data);
+    char string[1024];
     compiler->_o = find_available_tmp_file("o");
     snprintf(string, 100, "yasm -f macho64 %s -o %s", compiler->_asm, compiler->_o);
     system(string);
@@ -146,7 +147,10 @@ void x86_64_close(Compiler *compiler){
     // system(string);
 
     remove(compiler->_asm);
-    snprintf(string, 100, "clang -arch x86_64 %s -o %s -e main -Wl,-w -Wl,-platform_version,macos,11.0,11.0", compiler->_o, compiler->name);
+    snprintf(string, 1024, 
+        "clang -O0 -fno-stack-protector -fno-common -fno-asynchronous-unwind-tables "
+        "-arch x86_64 %s -o %s -e main -Wl,-w -Wl,-platform_version,macos,11.0,11.0", 
+        compiler->_o, compiler->name);
     system(string);
     remove(compiler->_o);
 }
@@ -156,7 +160,7 @@ char *x86_64_format(char *str, int type){
     if (type != AST_STRING){
         return strdup(str);
     }
-    char *out = malloc(100);
+    char *out = malloc(1000);
     int b = 0;
     out[b++] = '\'';
     for (int i=0; i<strlen(str); i++){
@@ -612,7 +616,7 @@ void x86_64_eat_body(Compiler *compiler){
         snprintf(string, 100, "_fun%s", ast.data.funcdef.name);
         char *name = strdup(string);
         if (string_compare(name, "_funmain", strlen(name)) == 0) {
-            name = "main";
+            name = "_main";
         }
         compiler->templabel = 0;
         compiler_write_text(compiler, "%s:\n", name);
@@ -643,7 +647,9 @@ void x86_64_eat_body(Compiler *compiler){
         }
     }else if (ast.type == AST_VAR){
         AST *data = ast.data.var.value;
-        compiler_write(compiler->data, "\talign 8\n\t_LBC%s: %s %s\n", ast.data.var.name, x86_64_typeinfo_to_specifier(ast.typeinfo), x86_64_format(x86_64_eat_expr(compiler, data, -1), data->type));
+        char *r = x86_64_format(x86_64_eat_expr(compiler, data, -1), data->type);
+        compiler_write(compiler->data, "\talign 8\n\t_LBC%s: %s %s\n", ast.data.var.name, x86_64_typeinfo_to_specifier(ast.typeinfo), r);
+        free(r);
     }
     compiler_peek(compiler);
 }

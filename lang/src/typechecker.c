@@ -1,18 +1,20 @@
-typedef struct {
+typedef struct TC_Variable {
     char *name;
     AST_TypeInfo type;
     bool isArg;
-}TC_Variable;
+    struct TC_Variable *next;
+} TC_Variable;
 
 typedef struct {
     int argn;
     AST_TypeInfo type;
-}TC_Arg;
+} TC_Arg;
 
 typedef struct {
     TC_Variable *variables;
+    TC_Variable *variabletail;
     int variablelen;
-}TC_Scope;
+} TC_Scope;
 
 typedef struct {
     char *name;
@@ -20,7 +22,7 @@ typedef struct {
     AST_TypeInfo *args;
     int arglen;
     TC_Scope scope;
-}TC_Func;
+} TC_Func;
 
 typedef struct {
     char *name;
@@ -30,7 +32,7 @@ typedef struct {
     AST *iter;
     TC_Func *functions;
     int functionlen;
-}Typechecker;
+} Typechecker;
 
 TC_Scope *current_scope = NULL;
 TC_Scope *global_scope;
@@ -53,20 +55,49 @@ int is_expression(AST ast){
     return 0;
 }
 
-
 TC_Scope initialize_scope(){
     TC_Scope scope;
     scope.variablelen = 0;
-    scope.variables = malloc(sizeof(TC_Variable) * 100);
+    scope.variables = NULL;
+    scope.variabletail = NULL;
     return scope;
 };
 
+void free_scope(TC_Scope scope){
+    TC_Variable *curr = scope.variables;
+    while (curr) {
+        TC_Variable *next = curr->next;
+        free(curr);
+        curr = next;
+    }
+}
+
 void add_variable_in_current_scope(TC_Variable variable){
-   current_scope->variables[current_scope->variablelen++] = variable;
+    TC_Variable *new_var = malloc(sizeof(TC_Variable));
+    *new_var = variable;
+    new_var->next = NULL;
+    if (current_scope->variables == NULL) {
+        current_scope->variables = new_var;
+        current_scope->variabletail = new_var;
+    } else {
+        current_scope->variabletail->next = new_var;
+        current_scope->variabletail = new_var;
+    }
+    current_scope->variablelen++;
 }
 
 void add_variable_in_global_scope(TC_Variable variable){
-   global_scope->variables[global_scope->variablelen++] = variable;
+    TC_Variable *new_var = malloc(sizeof(TC_Variable));
+    *new_var = variable;
+    new_var->next = NULL;
+    if (global_scope->variables == NULL) {
+        global_scope->variables = new_var;
+        global_scope->variabletail = new_var;
+    } else {
+        global_scope->variabletail->next = new_var;
+        global_scope->variabletail = new_var;
+    }
+    global_scope->variablelen++;
 }
 
 AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast);
@@ -91,23 +122,23 @@ TC_Variable find_variable_in_scopes(Typechecker *typechecker, AST *_ast, int *p,
         return variable;
     };
     if (current_scope != NULL){
-        for (int i=0; i<current_scope->variablelen; i++){
-            if (strcmp(current_scope->variables[i].name, ast.data.arg.value) == 0){
-                if (p != NULL){
-                    *p = 1;
-                }
-                return current_scope->variables[i];
-            };
-        };
-    }
-    for (int i=0; i<global_scope->variablelen; i++){
-        if (strcmp(global_scope->variables[i].name, ast.data.arg.value) == 0){
-            if (p != NULL){
-                *p = 2;
+        TC_Variable *curr = current_scope->variables;
+        while (curr) {
+            if (strcmp(curr->name, ast.data.arg.value) == 0){
+                if (p != NULL) *p = 1;
+                return *curr;
             }
-            return global_scope->variables[i];
-        };
-    };
+            curr = curr->next;
+        }
+    }
+    TC_Variable *curr_g = global_scope->variables;
+    while (curr_g) {
+        if (strcmp(curr_g->name, ast.data.arg.value) == 0){
+            if (p != NULL) *p = 2;
+            return *curr_g;
+        }
+        curr_g = curr_g->next;
+    }
     if (error == 1){
         char string[100];
         snprintf(string, 100, "Variable \"%s\" doesn't exist", ast.data.arg.value);
@@ -135,6 +166,34 @@ Typechecker *typechecker_init(Parser *parser) {
     global_scope = arena_alloc(&arena, sizeof(TC_Scope));
     *global_scope = initialize_scope();
     return typechecker;
+}
+
+void free_typechecker(Typechecker *typechecker) {
+    if (!typechecker) return;
+    
+    if (typechecker->functions) {
+        for (int i = 0; i < typechecker->functionlen; i++) {
+            if (typechecker->functions[i].args) {
+                free(typechecker->functions[i].args);
+            }
+            free_scope(typechecker->functions[i].scope);
+        }
+        free(typechecker->functions);
+    }
+    
+    if (current_scope) {
+        free_scope(*current_scope);
+        free(current_scope);
+        current_scope = NULL;
+    }
+    
+    if (global_scope) {
+        free_scope(*global_scope);
+        free(global_scope);
+        global_scope = NULL;
+    }
+
+    arena_reset(&arena);
 }
 
 char *externs[100];
@@ -307,9 +366,7 @@ bool is_immediate(AST *ast){
     return false;
 };
 
-
 bool var_auto = 0;
-
 
 void typechecker_mode(Typechecker *typechecker, AST *ast){
     if (strcmp(ast->data.mode.name, "link.extern") == 0){
@@ -332,12 +389,15 @@ void typechecker_eat_function(Typechecker *typechecker, AST *ast){
     typechecker->functions[typechecker->functionlen].arglen = ast->data.funcdef.argslen;
     typechecker->functions[typechecker->functionlen].ret = ast->typeinfo;
     typechecker->functions[typechecker->functionlen].scope = initialize_scope();
-    if (current_scope != NULL) free(current_scope);
+    if (current_scope != NULL) {
+        free_scope(*current_scope);
+        free(current_scope);
+    }
     current_scope = malloc(sizeof(TC_Scope));
     *current_scope = typechecker->functions[typechecker->functionlen].scope;
     for (int i=0; i<ast->data.funcdef.argslen; i++){
-        add_variable_in_current_scope((TC_Variable){ast->data.funcdef.args[i]->arg, ast->data.funcdef.args[i]->type, true});
-        typechecker->functions[typechecker->functionlen].args[i] = ast->data.funcdef.args[i]->type;
+        add_variable_in_current_scope((TC_Variable){ast->data.funcdef.args[i].arg, ast->data.funcdef.args[i].type, true, NULL});
+        typechecker->functions[typechecker->functionlen].args[i] = ast->data.funcdef.args[i].type;
     };
     typechecker->functionlen++;
 
@@ -373,7 +433,8 @@ void typechecker_eat_assign(Typechecker *typechecker, AST *ast){
     bool is_block = typechecker->iter && typechecker->iter->type == AST_ASSIGN;
     AST_TypeInfo expected = ast->typeinfo;
     if (strcmp(typeinfo_to_string(expected), "unknown") == 0){
-        int *p = malloc(sizeof(int));
+        int p_val = 0;
+        int *p = &p_val;
         expected = find_variable_in_scopes(typechecker, ast->data.assign.from, p, 0).type;
         if (expected.type == 0 && var_auto == 1){
             expected = (AST_TypeInfo){"", KIND_AUTO, 0};
@@ -392,10 +453,10 @@ void typechecker_eat_assign(Typechecker *typechecker, AST *ast){
         if (!is_immediate(ast->data.assign.assignto)){
             error_generate_parser("GlobalVarError", "Global variables cannot be set to a non-constant value.", ast->data.assign.assignto->row, ast->data.assign.assignto->col, ast->data.assign.assignto->filename);
         };
-        add_variable_in_global_scope((TC_Variable){ast->data.assign.from->data.arg.value, expected, false});
+        add_variable_in_global_scope((TC_Variable){ast->data.assign.from->data.arg.value, expected, false, NULL});
     }else {
     blockarea:
-        add_variable_in_current_scope((TC_Variable){ast->data.assign.from->data.arg.value, expected, false});
+        add_variable_in_current_scope((TC_Variable){ast->data.assign.from->data.arg.value, expected, false, NULL});
     }
     typechecker_eat(typechecker, ast->data.assign.from);
 
@@ -437,8 +498,8 @@ void typechecker_eat_funcall(Typechecker *typechecker, AST *ast){
             snprintf(string, 100, "Too many or too little arguments sent to function %s", ast->data.funcall.name);
             error_generate_parser("FuncError", string, ast->row, ast->col, ast->filename);
         };
+        AST *arg = ast->data.funcall.args;
         for (int i=0; i<ast->data.funcall.argslen; i++){
-            AST *arg = ast->data.funcall.args[i];
             typechecker_eat(typechecker, arg);
             AST_TypeInfo left = fetch_type(typechecker, arg);
             AST_TypeInfo right = func.args[i];
@@ -447,6 +508,7 @@ void typechecker_eat_funcall(Typechecker *typechecker, AST *ast){
                 snprintf(string, 100, "In function \"%s\", argument type \"%s\" is expected, but argument of type \"%s\" is given", ast->data.funcall.name, typeinfo_to_string(right), typeinfo_to_string(left));
                 error_generate_parser("ArgError", string, ast->row, ast->col, ast->filename);
             };
+            arg = arg->next;
         };
     }
 }
@@ -466,9 +528,10 @@ void typechecker_eat_index(Typechecker *typechecker, AST *ast){
 }
 
 void typechecker_eat_syscall(Typechecker *typechecker, AST *ast){
+    AST *arg = ast->data.funcall.args;
     for (int i=0; i<ast->data.funcall.argslen; i++){
-        AST *arg = ast->data.funcall.args[i];
         typechecker_eat(typechecker, arg);
+        arg = arg->next;
     };
 }
 
@@ -567,6 +630,16 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         typechecker_eat_binary_comparison(typechecker, ast);
     }else if(ast->type == AST_MODE){
         typechecker_mode(typechecker, ast);
+    }else if(ast->type == AST_STRUCT){
+        int len = 0;
+        for (int i=0; i<ast->data.struct1.memberlen; i++){
+            len += typeinfo_to_len(ast->data.struct1.members[i].type);
+        };
+        for (int i=0; i<typesLen; i++){
+            if (strcmp(types[i].name, ast->data.struct1.name) == 0){
+                types[i].length = len;
+            }
+        }
     }
     return;
 error:

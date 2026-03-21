@@ -11,22 +11,37 @@ void error_generate_parser(char *type, char *name, int l, int c, char *f){
 };
 
 void tokenizer_ensure_capacity(Tokenizer *tokenizer, int required_len) {
-    if (required_len >= tokenizer->tokencap) {
-        while (tokenizer->tokencap <= required_len) {
-            tokenizer->tokencap = (tokenizer->tokencap == 0) ? 32 : tokenizer->tokencap * 2;
-        }
+    if (required_len < tokenizer->tokencap) return;
 
-        Token *new_tokens = realloc(tokenizer->tokens, tokenizer->tokencap * sizeof(Token));
-        if (new_tokens == NULL) {
-            fprintf(stderr, "Fatal: Out of Memory during reallocation\n");
-            exit(1);
-        }
+    int new_cap = tokenizer->tokencap == 0 ? 32 : tokenizer->tokencap;
+    while (new_cap <= required_len) {
+        new_cap *= 2;
+    }
+
+    Token *new_tokens = realloc(tokenizer->tokens, new_cap * sizeof(Token));
+    if (new_tokens) {
         tokenizer->tokens = new_tokens;
+        tokenizer->tokencap = new_cap;
     }
 }
 
+void tokenizer_free(Tokenizer *tokenizer) {
+    if (!tokenizer) return;
+    if (tokenizer->tokens) {
+        free(tokenizer->tokens);
+    }
+    free(tokenizer);
+}
+
 void tokenizer_insert_at(Tokenizer *tokenizer, int index, Token *new_tokens, int count, int tokens_to_remove) {
+    if (index < 0 || index > tokenizer->tokenlen || count < 0 || tokens_to_remove < 0) {
+        return;
+    }
+    
     int new_total_len = tokenizer->tokenlen + count - tokens_to_remove;
+    if (new_total_len < 0) {
+        return;
+    }
     
     tokenizer_ensure_capacity(tokenizer, new_total_len);
 
@@ -44,6 +59,23 @@ void tokenizer_insert_at(Tokenizer *tokenizer, int index, Token *new_tokens, int
     }
 
     tokenizer->tokenlen = new_total_len;
+}
+
+void tokenizer_remove_at(Tokenizer *tokenizer, int index, int count) {
+    if (!tokenizer || index < 0 || count <= 0 || index + count > tokenizer->tokenlen) {
+        return;
+    }
+
+    int tail_start = index + count;
+    int tail_len = tokenizer->tokenlen - tail_start;
+
+    if (tail_len > 0) {
+        memmove(&tokenizer->tokens[index], 
+                &tokenizer->tokens[tail_start], 
+                tail_len * sizeof(Token));
+    }
+
+    tokenizer->tokenlen -= count;
 }
 
 void _tokenizer_append(Tokenizer *tokenizer, Token tok) {
@@ -87,6 +119,7 @@ char tokenizer_token(Tokenizer *tokenizer){
     }else if (c == '='){
         tokenizer_append(tokenizer, TOKEN_EQ, "=");
     }else if (c == ';'){
+        tokenizer_append(tokenizer, TOKEN_SEMICOLON, ";");
     }else if (c == '#'){
         tokenizer_append(tokenizer, TOKEN_HASH, "#");
     }else if (c == '$'){
@@ -319,8 +352,17 @@ Tokenizer *tokenizer_init(char *input_file){
     source_files[num_source_files++] = (SourceFile){tokenizer->name, tokenizer->code, size};
     fclose(f);
     tokenizer->cur = 0;
-    tokenizer->tokencap = 1;
+    tokenizer->tokencap = 900;
     tokenizer->tokens = malloc(sizeof(Token) * tokenizer->tokencap);
     tokenizer->tokenlen = 0;
     return tokenizer;
+}
+
+void tokenizer_free_tokens(Tokenizer *tokenizer) {
+    if (tokenizer && tokenizer->tokens) {
+        free(tokenizer->tokens);
+        tokenizer->tokens = NULL;
+        tokenizer->tokenlen = 0;
+        tokenizer->tokencap = 0;
+    }
 }

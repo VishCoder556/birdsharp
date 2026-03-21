@@ -44,6 +44,9 @@ bool parser_is(Parser *parser, int type){
 char parse_type(Parser *parser, AST_TypeInfo *typeinfo){
     typeinfo->type = parser->tokens[parser->cur].value;
     typeinfo->kind = KIND_UNKNOWN;
+    if (strcmp(parser->tokens[parser->cur].value, "struct") == 0){
+        parser_peek(parser);
+    }
     for (int i = 0; i < typesLen; i++) {
         if (strcmp(types[i].name, parser->tokens[parser->cur].value) == 0) {
             typeinfo->kind = types[i].kind;
@@ -448,7 +451,7 @@ AST *parser_eat_expr(Parser *parser){
         if (parser->tokens[parser->cur+1].type == TOKEN_LP){
             ast->type = AST_FUNCALL;
             ast->data.funcall = (AST_FuncCall){};
-            ast->data.funcall.args = malloc(sizeof(AST*) * 100);
+            ast->data.funcall.args = malloc(sizeof(AST));
             int id = parser->cur;
             parser_expect(parser, TOKEN_ID);
             ast->data.funcall.name = parser->tokens[id].value;
@@ -461,19 +464,27 @@ AST *parser_eat_expr(Parser *parser){
                 parser_expect(parser, TOKEN_RP);
                 goto skip;
             };
-            while (parser->tokens[parser->cur].type != TOKEN_RP && parser->tokens[parser->cur].type != TOKEN_EOF){
-                ast->data.funcall.args[ast->data.funcall.argslen++] = parser_eat_expr(parser);
-                if (parser->tokens[parser->cur].type != TOKEN_RP){
+            AST **ptr = &ast->data.funcall.args;
+            while (parser->tokens[parser->cur].type != TOKEN_RP && parser->tokens[parser->cur].type != TOKEN_EOF) {
+                AST *node = parser_eat_expr(parser);
+                
+                *ptr = node;
+                ast->data.funcall.argslen++;
+                
+                if (parser->tokens[parser->cur].type != TOKEN_RP) {
                     parser_expect(parser, TOKEN_COMMA);
-                };
-            };
+                }
+                
+                ptr = &node->next;
+            }
+            *ptr = NULL;
             parser_expect(parser, TOKEN_RP);
             if (strcmp(ast->data.funcall.name, "deref") == 0){
                 ast->type = AST_DEREF;
                 if (ast->data.funcall.argslen != 1){
                     error_generate("DerefError", "Too less or too many arguments to deref function");
                 };
-                ast->data.expr.left = ast->data.funcall.args[0];
+                ast->data.expr.left = ast->data.funcall.args;
             }else if(strncmp(ast->data.funcall.name, "syscall", strlen("syscall")) == 0){
                 ast->type = AST_SYSCALL;
                 ast->data.funcall.name = ast->data.funcall.name;
@@ -508,19 +519,81 @@ AST *parser_eat_ast(Parser *parser){
     };
     ast->type = AST_UNKNOWN;
     if (parser->tokens[parser->cur].type == TOKEN_ID){
-        if(strcmp(parser->tokens[parser->cur].value, "if") == 0){
+        if (strcmp(parser->tokens[parser->cur].value, "if") == 0) {
             ast->type = AST_IF;
-            
             parser_peek(parser);
             ast->data.if1.block.condition = parser_eat_expr(parser);
             parser_expect(parser, TOKEN_LB);
 
-            ast->data.if1.block.statements = malloc(sizeof(AST*) * 100);
+            int main_cap = 8;
+            ast->data.if1.block.statements = malloc(sizeof(AST*) * main_cap);
             ast->data.if1.block.statementlen = 0;
-            ast->data.if1.else1 = malloc(sizeof(AST*) * 100);
-            ast->data.if1.elseif = malloc(sizeof(Block) * 100);
-            ast->data.if1.elselen = 0;
+
+            while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF) {
+                if (ast->data.if1.block.statementlen >= main_cap) {
+                    main_cap += 10;
+                    ast->data.if1.block.statements = realloc(ast->data.if1.block.statements, sizeof(AST*) * main_cap);
+                }
+                ast->data.if1.block.statements[ast->data.if1.block.statementlen++] = parser_eat_ast(parser);
+            }
+            parser_expect(parser, TOKEN_RB);
+
+            int elseif_cap = 8;
+            ast->data.if1.elseif = malloc(sizeof(Block) * elseif_cap);
             ast->data.if1.elseiflen = 0;
+
+            int else_cap = 8;
+            ast->data.if1.else1 = malloc(sizeof(AST*) * else_cap);
+            ast->data.if1.elselen = 0;
+
+            while (parser->cur < parser->tokenlen && strcmp(parser->tokens[parser->cur].value, "else") == 0) {
+                parser_peek(parser);
+                if (strcmp(parser->tokens[parser->cur].value, "if") == 0) {
+                    parser_peek(parser);
+                    if (ast->data.if1.elseiflen >= elseif_cap) {
+                        elseif_cap += 10;
+                        ast->data.if1.elseif = realloc(ast->data.if1.elseif, sizeof(Block) * elseif_cap);
+                    }
+
+                    int ei = ast->data.if1.elseiflen;
+                    ast->data.if1.elseif[ei].condition = parser_eat_expr(parser);
+                    parser_expect(parser, TOKEN_LB);
+
+                    int sub_cap = 8;
+                    ast->data.if1.elseif[ei].statements = malloc(sizeof(AST*) * sub_cap);
+                    ast->data.if1.elseif[ei].statementlen = 0;
+
+                    while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF) {
+                        if (ast->data.if1.elseif[ei].statementlen >= sub_cap) {
+                            sub_cap += 10;
+                            ast->data.if1.elseif[ei].statements = realloc(ast->data.if1.elseif[ei].statements, sizeof(AST*) * sub_cap);
+                        }
+                        ast->data.if1.elseif[ei].statements[ast->data.if1.elseif[ei].statementlen++] = parser_eat_ast(parser);
+                    }
+                    ast->data.if1.elseiflen++;
+                    parser_expect(parser, TOKEN_RB);
+                } else {
+                    parser_expect(parser, TOKEN_LB);
+                    while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF) {
+                        if (ast->data.if1.elselen >= else_cap) {
+                            else_cap += 10;
+                            ast->data.if1.else1 = realloc(ast->data.if1.else1, sizeof(AST*) * else_cap);
+                        }
+                        ast->data.if1.else1[ast->data.if1.elselen++] = parser_eat_ast(parser);
+                    }
+                    parser_expect(parser, TOKEN_RB);
+                    break;
+                }
+            }
+        }else if(strcmp(parser->tokens[parser->cur].value, "while") == 0){
+            ast->type = AST_WHILE;
+            int while_cap = 8;
+            ast->data.while1.block = malloc(sizeof(AST*) * while_cap);
+            ast->data.while1.blocklen = 0;
+
+            parser_peek(parser);
+            ast->data.while1.condition = parser_eat_expr(parser);
+            parser_expect(parser, TOKEN_LB);
 
             Token prev = (Token){0};
             int c = 0;
@@ -531,117 +604,81 @@ AST *parser_eat_ast(Parser *parser){
                 } else {
                     c = 0;
                 }
-                ast->data.if1.block.statements[ast->data.if1.block.statementlen++] = parser_eat_ast(parser);
                 prev = parser->tokens[parser->cur];
+
+                if (ast->data.while1.blocklen >= while_cap) {
+                    while_cap += 10;
+                    ast->data.while1.block = realloc(ast->data.while1.block, sizeof(AST*) * while_cap);
+                }
+
+                ast->data.while1.block[ast->data.while1.blocklen++] = parser_eat_ast(parser);
             }
             parser_expect(parser, TOKEN_RB);
-
-            while (parser->cur < parser->tokenlen && strcmp(parser->tokens[parser->cur].value, "else") == 0){
+        }else if (strcmp(parser->tokens[parser->cur].value, "return") == 0) {
+            parser_peek(parser);
+            ast->type = AST_RET;
+            ast->data.ret.ret = parser_eat_expr(parser);
+        }else if((is_type(parser, parser->tokens[parser->cur]) == 0)){
+            parse_type(parser, &ast->typeinfo);
+            ast->type = AST_ASSIGN;
+            int idnum = parser->cur;
+            parser_expect(parser, TOKEN_ID);
+            parser->cur = idnum;
+            ast->data.assign.new = true;
+            ast->data.assign.from = parser_eat_expr(parser);
+            ast->data.assign.from->typeinfo = ast->typeinfo;
+            if (parser->tokens[parser->cur].type == TOKEN_EQ){
                 parser_peek(parser);
-                
-                if (strcmp(parser->tokens[parser->cur].value, "if") == 0){
-                    parser_peek(parser);
-                    
-                    int ei = ast->data.if1.elseiflen;
-                    ast->data.if1.elseif[ei].condition = parser_eat_expr(parser);
-                    ast->data.if1.elseif[ei].statements = malloc(sizeof(AST*) * 100);
-                    ast->data.if1.elseif[ei].statementlen = 0;
-                    
-                    parser_expect(parser, TOKEN_LB);
-
-                    prev = (Token){0};
-                    c = 0;
-                    while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                        ast->data.if1.elseif[ei].statements[ast->data.if1.elseif[ei].statementlen++] = parser_eat_ast(parser);
-                    }
-                    ast->data.if1.elseiflen++;
-                    parser_expect(parser, TOKEN_RB);
-                } else {
-                    parser_expect(parser, TOKEN_LB);
-                    while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                        ast->data.if1.else1[ast->data.if1.elselen++] = parser_eat_ast(parser);
-                    }
-                    parser_expect(parser, TOKEN_RB);
-                    break; 
-                }
-            }
-        }else if(strcmp(parser->tokens[parser->cur].value, "while") == 0){
-                ast->type = AST_WHILE;
-                ast->data.while1.block = malloc(sizeof(AST*) * 100);
-                parser_peek(parser);
-                ast->data.while1.condition = parser_eat_expr(parser);
-                parser_expect(parser, TOKEN_LB);
-                Token prev = (Token){0};
-                char c = 0;
-                ast->data.while1.blocklen = 0;
-                while (parser->tokens[parser->cur].type != TOKEN_RB && parser->tokens[parser->cur].type != TOKEN_EOF){
-                    if (parser->tokens[parser->cur].type == prev.type && strcmp(parser->tokens[parser->cur].value, prev.value) == 0){
-                        c++;
-                        if (c > 5){
-                            error_generate_parser("SyntaxError", "Something went wrong in while", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
-                        }
-                    }else {
-                        c = 0;
-                    };
-                    prev = parser->tokens[parser->cur];
-                    ast->data.while1.block[ast->data.while1.blocklen++] = parser_eat_ast(parser);
-                };
-                parser_expect(parser, TOKEN_RB);
-            }else if (strcmp(parser->tokens[parser->cur].value, "return") == 0) {
-                parser_peek(parser);
-                ast->type = AST_RET;
-                ast->data.ret.ret = parser_eat_expr(parser);
-            }else if((is_type(parser, parser->tokens[parser->cur]) == 0)){
-                parse_type(parser, &ast->typeinfo);
-                ast->type = AST_ASSIGN;
-                int idnum = parser->cur;
-                parser_expect(parser, TOKEN_ID);
-                parser->cur = idnum;
-                ast->data.assign.new = true;
-                ast->data.assign.from = parser_eat_expr(parser);
-                ast->data.assign.from->typeinfo = ast->typeinfo;
-                if (parser->tokens[parser->cur].type == TOKEN_EQ){
-                    parser_peek(parser);
-                    ast->data.assign.assignto = parser_eat_expr(parser);
-                }else {
-                    ast->data.assign.assignto = malloc(sizeof(*(ast->data.assign.assignto)));
-                    *(ast->data.assign.assignto) = (AST){0};
-                    ast->data.assign.assignto->type = AST_UNKNOWN;
-                }
-            }else if (strcmp(parser->tokens[parser->cur].value, "return") == 0) {
-                parser_peek(parser);
-                ast->type = AST_RET;
-                ast->data.ret.ret = parser_eat_expr(parser);
-            }else if(strcmp(parser->tokens[parser->cur].value, "break") == 0){
-                ast->type = AST_BREAK;
-                parser_peek(parser);
+                ast->data.assign.assignto = parser_eat_expr(parser);
             }else {
-                AST *ast_expr = parser_eat_expr(parser);
-                if(parser->tokens[parser->cur].type == TOKEN_EQ){
-                    ast->type = AST_ASSIGN;
-                    parser_location(parser, ast);
-                    ast->typeinfo.type = "unknown";
-                    ast->typeinfo.kind = KIND_UNKNOWN;
-                    ast->data.assign.from = ast_expr;
-                    parser_peek(parser);
-                    ast->data.assign.assignto = parser_eat_expr(parser);
-                    return ast;
-                }else if (parser->tokens[parser->cur].type == TOKEN_LP){
-                    ast->type = AST_FUNCALL;
-                    ast->data.funcall = (AST_FuncCall){0};
-                    int id = parser->cur;
-                    parser_expect(parser, TOKEN_ID);
-                    ast->data.funcall.name = parser->tokens[id].value;
-                    parser_expect(parser, TOKEN_LP);
-                    while (parser->tokens[parser->cur].type != TOKEN_RP && parser->tokens[parser->cur].type != TOKEN_EOF){
-                        ast->data.funcall.args[ast->data.funcall.argslen++] = parser_eat_expr(parser);
-                        if (parser->tokens[parser->cur].type != TOKEN_COMMA && parser->tokens[parser->cur].type != TOKEN_RP){
-                            error_generate("CommaError", "Expected Comma");
-                        }else if(parser->tokens[parser->cur].type == TOKEN_COMMA){
-                            parser_peek(parser);
-                        }
-                    };
-                    parser_expect(parser, TOKEN_RP);
+                ast->data.assign.assignto = malloc(sizeof(*(ast->data.assign.assignto)));
+                *(ast->data.assign.assignto) = (AST){0};
+                ast->data.assign.assignto->type = AST_UNKNOWN;
+            }
+        }else if (strcmp(parser->tokens[parser->cur].value, "return") == 0) {
+            parser_peek(parser);
+            ast->type = AST_RET;
+            ast->data.ret.ret = parser_eat_expr(parser);
+        }else if(strcmp(parser->tokens[parser->cur].value, "break") == 0){
+            ast->type = AST_BREAK;
+            parser_peek(parser);
+        }else {
+            AST *ast_expr = parser_eat_expr(parser);
+            if(parser->tokens[parser->cur].type == TOKEN_EQ){
+                ast->type = AST_ASSIGN;
+                parser_location(parser, ast);
+                ast->typeinfo.type = "unknown";
+                ast->typeinfo.kind = KIND_UNKNOWN;
+                ast->data.assign.from = ast_expr;
+                parser_peek(parser);
+                ast->data.assign.assignto = parser_eat_expr(parser);
+                return ast;
+            }else if (parser->tokens[parser->cur].type == TOKEN_LP){
+                ast->type = AST_FUNCALL;
+                ast->data.funcall = (AST_FuncCall){0};
+                int id = parser->cur;
+                parser_expect(parser, TOKEN_ID);
+                ast->data.funcall.name = parser->tokens[id].value;
+                ast->data.funcall.args = malloc(sizeof(AST));
+                parser_expect(parser, TOKEN_LP);
+                AST **ptr = &ast->data.funcall.args;
+                ast->data.funcall.argslen = 0;
+
+                while (parser->tokens[parser->cur].type != TOKEN_RP && parser->tokens[parser->cur].type != TOKEN_EOF) {
+                    AST *node = parser_eat_expr(parser);
+                    *ptr = node;
+                    ast->data.funcall.argslen++;
+
+                    if (parser->tokens[parser->cur].type == TOKEN_COMMA) {
+                        parser_peek(parser);
+                    } else if (parser->tokens[parser->cur].type != TOKEN_RP) {
+                        error_generate("CommaError", "Expected Comma");
+                    }
+
+                    ptr = &node->next;
+                }
+                *ptr = NULL;
+                parser_expect(parser, TOKEN_RP);
             }else {
                 return ast_expr;
             }
@@ -665,6 +702,9 @@ AST *parser_eat_ast(Parser *parser){
         }else {
             error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->cur+2].row, parser->tokens[parser->cur+2].col, parser->tokens[parser->cur].name);
        }
+    }
+    if (parser->tokens[parser->cur].type == TOKEN_SEMICOLON){
+        parser_peek(parser);
     }
 
     return ast;
@@ -696,16 +736,20 @@ AST *parser_eat_body(Parser *parser){
                 ast->data.assign.assignto = parser_eat_expr(parser);
             }else if(parser->tokens[parser->cur].type == TOKEN_LP){
                 ast->type = AST_FUNCDEF;
-                ast->data.funcdef.args = malloc(sizeof(Argument*) * 100);
+                int arg_cap = 8;
+                ast->data.funcdef.args = malloc(sizeof(Argument) * arg_cap);
                 ast->data.funcdef.name = ast->data.assign.from->data.arg.value;
                 if (strcmp(ast->data.funcdef.name, "main") == 0){
                     _main = ast;
                 }
                 parser_peek(parser);
             while (parser->tokens[parser->cur].type != TOKEN_RP && parser->tokens[parser->cur].type != TOKEN_EOF){
-                ast->data.funcdef.args[ast->data.funcdef.argslen] = malloc(sizeof(Argument));
-                parse_type(parser, &(ast->data.funcdef.args[ast->data.funcdef.argslen]->type));
-                ast->data.funcdef.args[ast->data.funcdef.argslen]->arg = parser->tokens[parser->cur].value;
+                if (ast->data.funcdef.argslen >= arg_cap) {
+                    arg_cap += 2;
+                    ast->data.funcdef.args = realloc(ast->data.funcdef.args, sizeof(Argument) * arg_cap);
+                }
+                parse_type(parser, &(ast->data.funcdef.args[ast->data.funcdef.argslen].type));
+                ast->data.funcdef.args[ast->data.funcdef.argslen].arg = parser->tokens[parser->cur].value;
                 ast->data.funcdef.argslen++;
                 parser_peek(parser);
                 if (parser->tokens[parser->cur].type != TOKEN_RP){
@@ -747,6 +791,25 @@ AST *parser_eat_body(Parser *parser){
             }else if (is_flat == 1){
                 goto parse_flat;
             }
+        }else if (strcmp(parser->tokens[parser->cur].value, "struct") == 0){
+            ast->type = AST_STRUCT;
+            parser_peek(parser);
+            char *name = parser->tokens[parser->cur].value;
+            types[typesLen++] = (struct Pair){KIND_STRUCT, name, -1, name};
+            parser_expect(parser, TOKEN_ID);
+            ast->data.struct1.name = strdup(name);
+            ast->data.struct1.members = malloc(sizeof(AST_StructMember) * 1);
+            parser_expect(parser, TOKEN_LB);
+            int i = 0;
+            while(parser->tokens[parser->cur].type != TOKEN_RB){
+                parse_type(parser, &ast->data.struct1.members[i].type);
+                char *id = parser->tokens[parser->cur].value;
+                parser_expect(parser, TOKEN_ID);
+                ast->data.struct1.members[i].name = strdup(id);
+                i++;
+            };
+            parser_expect(parser, TOKEN_RB);
+            // printf("{%s}\n", parser->tokens[parser->cur].value);
         }else {
             if (is_flat == 1)
                 goto parse_flat;
@@ -775,6 +838,9 @@ parse_flat:
         }
     }
 end:
+    if (parser->tokens[parser->cur].type == TOKEN_SEMICOLON){
+        parser_peek(parser);
+    }
     return ast;
 
 }

@@ -41,7 +41,7 @@ char *type_to_selector(AST_TypeInfo type){
         case 2: return "i16";
         case 4: return "i32";
         case 8: return "i64";
-        case 0: return "i64";
+        default: return "i64";
     }
     return "";
 }
@@ -330,12 +330,14 @@ char *ir_generate_expr(void *generator, AST ast){
         arena_sb_append_cstr(&arena, &IrData, "\"\n");
         return reg;
     }else if(ast.type == AST_FUNCALL){
+        AST *argcur = ast.data.funcall.args;
         for (int i=ast.data.funcall.argslen; i > 0; i--){
             char string[100];
             snprintf(string, 100, "a%d", i-1);
             ir_allocate_reg(string);
             int idx = i == 0 ? 0 : i-1;
-            move(generator, *ast.data.funcall.args[idx], string);
+            move(generator, *argcur, string);
+            argcur = argcur->next;
             free_temp(string);
         };
         generator_write_text(generator, "\tcall ");
@@ -359,13 +361,25 @@ char *ir_generate_expr(void *generator, AST ast){
         snprintf(string, 100, "%s [%s]", type_to_selector(ast.typeinfo), ast.data.arg.value);
         return strdup(string);
     }else if(ast.type == AST_SYSCALL){
-        for (int i=ast.data.funcall.argslen; i > 0; i--){
+        AST *current = ast.data.funcall.args;
+        int arg_count = ast.data.funcall.argslen;
+
+        AST **tmp_array = malloc(sizeof(AST*) * arg_count);
+        AST *iter = current;
+        for (int i = 0; i < arg_count; i++) {
+            tmp_array[i] = iter;
+            iter = iter->next;
+        }
+
+        for (int i = arg_count; i > 0; i--) {
             char string[100];
-            snprintf(string, 100, "a%d", i-1);
+            snprintf(string, 100, "a%d", i - 1);
             ir_allocate_reg(string);
-            move(generator, *ast.data.funcall.args[i-1], string);
+            move(generator, *tmp_array[i - 1], string);
             free_temp(string);
-        };
+        }
+
+        free(tmp_array);
         int syscallLen = strlen("syscall");
         if (strncmp(ast.data.funcall.name, "syscall", syscallLen) == 0){
             ast.data.funcall.name += syscallLen + 1;
@@ -654,6 +668,7 @@ void ir_generate_stmnt(void *generator, AST ast){
 };
 
 void ir_generate_ast(void *generator, AST ast){
+    // printf("Hi\n");
     if (ast.type == AST_FUNCDEF){
         for (int i=0; i<REGISTERS; i++){
             IRRegs[i].available = true;
@@ -664,7 +679,7 @@ void ir_generate_ast(void *generator, AST ast){
         generator_write_text(generator, " {\n");
         current_function = ast.data.funcdef.name;
         for (int i=0; i<ast.data.funcdef.argslen; i++){
-            Argument arg = *ast.data.funcdef.args[i];
+            Argument arg = ast.data.funcdef.args[i];
             int typeinfo = typeinfo_to_len(arg.type);
             char argS[100];
             snprintf(argS, 100, "a%d", i);
@@ -687,9 +702,11 @@ void ir_generate_ast(void *generator, AST ast){
         arena_sb_append_cstr(&arena, &IrData, ir_generate_expr(generator, *ast.data.assign.assignto));
         arena_sb_append_cstr(&arena, &IrData, "\n");
     }else if(ast.type == AST_UNKNOWN){
-
+        ;
     }else if(ast.type == AST_MODE){
-
+        ;
+    }else if(ast.type == AST_STRUCT){
+        ;
     }else {
         char string[100];
         snprintf(string, 100, "Unknown type found: '%d'", ast.type);

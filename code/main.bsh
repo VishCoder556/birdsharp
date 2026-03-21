@@ -2,7 +2,5 @@
 
 
 i32 main(i32 argc, char **argv){
-    int a = 5
-    print("Hello World\n")
-    return cast(i32, (3 * 4) > 1);
+    return 10;
 }

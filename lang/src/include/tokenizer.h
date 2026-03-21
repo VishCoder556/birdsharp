@@ -28,7 +28,8 @@ enum TokenType {
     TOKEN_AMP,
     TOKEN_DOT,
     TOKEN_FLOAT,
-    TOKEN_PIPE
+    TOKEN_PIPE,
+    TOKEN_SEMICOLON
 };
 typedef struct Token{
     int type;
@@ -49,6 +50,7 @@ typedef struct Tokenizer {
 }Tokenizer;
 
 
+void tokenizer_free_tokens(Tokenizer *tokenizer);
 char *token_to_string(int tokentype){
     switch (tokentype){
         case TOKEN_EOF: return "end of file";
@@ -57,6 +59,7 @@ char *token_to_string(int tokentype){
         case TOKEN_ID: return "identifier";
         case TOKEN_LP: return "'('";
         case TOKEN_RP: return "')'";
+        case TOKEN_SEMICOLON: return "';'";
         case TOKEN_LB: return "'{'";
         case TOKEN_RB: return "'}'";
         case TOKEN_LBRACKET: return "'['";

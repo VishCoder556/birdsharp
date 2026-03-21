@@ -158,6 +158,8 @@ int main(int argc, char **argv){
 
     while(tokenizer_token(tokenizer) != -1){
     };
+    // free(tokenizer->code);
+    // fre;
 
     Parser *parser = parser_init(tokenizer);
     while (parser_eat(parser) != -1){
@@ -187,6 +189,7 @@ int main(int argc, char **argv){
         x86_64_close(compiler);
     }
     }
+
 
     return 0;
 };

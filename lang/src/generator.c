@@ -14,6 +14,7 @@ typedef struct {
     AST *asts;
     int astlen;
     int cur;
+    AST *curr;
 
     Generator_Functions functions;
     Generator_Output *output;
@@ -24,6 +25,7 @@ Generator *_generator_init(Typechecker *typechecker, char *file, Generator_Funct
     generator->name = typechecker->name;
     generator->cur = 0;
     generator->asts = typechecker->asts;
+    generator->curr = generator->asts;
     generator->astlen = typechecker->astlen;
     generator->functions = functions;
     generator->output = malloc(sizeof(Generator_Output));
@@ -37,13 +39,13 @@ int generator_eat_ast(Generator *generator){
         generator->functions.close(generator);
         return -1;
     };
-    AST *cur = generator->asts;
-    for (int i = 0; i < generator->cur && cur; i++) cur = cur->next;
+    AST *cur = generator->curr;
     if (!cur){
         generator->functions.close(generator);
         return -1;
     }
     generator->functions.generate_ast(generator, *cur);
+    generator->curr = generator->curr->next;
     generator->cur++;
     return 0;
 };
