@@ -13,7 +13,6 @@ BirdSharp is currently in active development. The core compiler pipeline is func
 
 int main(long argc, char **argv) {
     print("Hello, BirdSharp!\n")
-    exit(0)
     return 0
 }
 ```
