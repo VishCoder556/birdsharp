@@ -699,8 +699,10 @@ AST *parser_eat_ast(Parser *parser){
         }else if(is_flat == 1){
             free(ast);
             return NULL;
+        }else if(parser->tokens[parser->cur].type == TOKEN_SEMICOLON){
+
         }else {
-            error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->cur+2].row, parser->tokens[parser->cur+2].col, parser->tokens[parser->cur].name);
+            error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
        }
     }
     if (parser->tokens[parser->cur].type == TOKEN_SEMICOLON){

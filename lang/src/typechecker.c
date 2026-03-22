@@ -386,7 +386,7 @@ void typechecker_eat_function(Typechecker *typechecker, AST *ast){
     AST_TypeInfo expected = ast->typeinfo;
     typechecker->functions[typechecker->functionlen].name = ast->data.funcdef.name;
     int argcap = 8;
-    typechecker->functions[typechecker->functionlen].args = malloc(sizeof(AST_TypeInfo) * ast->data.funcdef.arglen);
+    typechecker->functions[typechecker->functionlen].args = malloc(sizeof(AST_TypeInfo) * ast->data.funcdef.argslen);
     typechecker->functions[typechecker->functionlen].arglen = ast->data.funcdef.argslen;
     typechecker->functions[typechecker->functionlen].ret = ast->typeinfo;
     typechecker->functions[typechecker->functionlen].scope = initialize_scope();
