@@ -89,6 +89,7 @@ AST *top_level = NULL;
 AST *top_level_cur = NULL;
 int top_level_len = 0;
 bool is_flat = 0;
+bool semicolon = 0;
 AST *_main = NULL;
 
 
@@ -103,6 +104,10 @@ char *shorthand_mode(char *mode){
         return "declaration.var.auto";
     }else if (strcmp(mode, "fixedvar") == 0){
         return "declaration.var.strict";
+    }else if (strcmp(mode, "semicolon") == 0){
+        return "statement.break.semicolon";
+    }else if (strcmp(mode, "nosemicolon") == 0){
+        return "statement.break.none";
     }
     return mode;
 }
@@ -118,6 +123,10 @@ bool is_mode(char *mode){
         return 1;
     }else if (strcmp(mode, "declaration.var.strict") == 0){
         return 1;
+    }else if(strcmp(mode, "statement.break.semicolon") == 0){
+        return 1;
+    }else if(strcmp(mode, "statement.break.none") == 0){
+        return 1;
     }
 
     return false;
@@ -128,7 +137,8 @@ char try_parse_mode(Parser *parser, AST *ast){
     if (parser->tokens[parser->cur].type == TOKEN_HASH){
         Token mode_tok = parser->tokens[parser->cur];
         if (parser->cur+1 == parser->tokenlen){
-            error_generate("HashError", "# not allowed this late into code");
+            Token tok = parser->tokens[parser->cur];
+            error_generate_parser("HashError", "# not allowed this late into code", tok.row, tok.col, tok.name);
             exit(0);
         }
         parser_peek(parser);
@@ -165,6 +175,12 @@ char try_parse_mode(Parser *parser, AST *ast){
                 return -1; // ignore as mode
             }else if(strcmp(ast->data.mode.name, "scope.full") == 0){
                 is_flat = 0;
+                return -1; // ignore as mode
+            }else if(strcmp(ast->data.mode.name, "statement.break.semicolon") == 0){
+                semicolon = 1;
+                return -1; // ignore as mode
+            }else if(strcmp(ast->data.mode.name, "statement.break.none") == 0){
+                semicolon = 0;
                 return -1; // ignore as mode
             }else if(strcmp(ast->data.mode.name, "link.extern") == 0){
                 ast->data.mode.res = parser->tokens[parser->cur].value;
@@ -243,6 +259,8 @@ void parser_location(Parser *parser, AST *ast){
     ast->col = parser->tokens[parser->cur].col;
     ast->filename = parser->tokens[parser->cur].name;
 }
+
+
 AST *parser_eat_binary(Parser *parser, AST *ast){
     if (parser->tokens[parser->cur].type == TOKEN_LBRACKET){
         AST *ast2 = malloc(sizeof(AST));
@@ -289,6 +307,7 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
     if (parser->tokens[parser->cur].type == TOKEN_DIV){
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
+        parser_location(parser, ast2);
         ast2->type = AST_DIV;
         ast2->data.expr.left = ast;
         parser_peek(parser);
@@ -298,6 +317,7 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
     if (parser->tokens[parser->cur].type == TOKEN_MODULO){
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
+        parser_location(parser, ast2);
         ast2->type = AST_MODULO;
         ast2->data.expr.left = ast;
         parser_peek(parser);
@@ -307,6 +327,7 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
     if (parser->tokens[parser->cur].type == TOKEN_GT){
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
+        parser_location(parser, ast2);
         ast2->type = AST_GT;
         if (parser->tokens[parser->cur+1].type == TOKEN_EQ){
             parser_peek(parser);
@@ -320,6 +341,7 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
     if (parser->tokens[parser->cur].type == TOKEN_LT){
         AST *ast2 = malloc(sizeof(AST));
         *ast2 = (AST){0};
+        parser_location(parser, ast2);
         ast2->type = AST_LT;
         if (parser->tokens[parser->cur+1].type == TOKEN_EQ){
             parser_peek(parser);
@@ -332,9 +354,10 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
     }
     if (parser->tokens[parser->cur].type == TOKEN_EQ){
         if (parser->tokens[parser->cur+1].type == TOKEN_EQ){
-            parser_peek(parser);
             AST *ast2 = malloc(sizeof(AST));
             *ast2 = (AST){0};
+            parser_location(parser, ast2);
+            parser_peek(parser);
             ast2->type = AST_EQ;
             ast2->data.expr.left = ast;
             parser_peek(parser);
@@ -343,6 +366,7 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         };
     }
     if (parser->tokens[parser->cur].type == TOKEN_EXC){
+        parser_location(parser, ast2);
         parser_peek(parser);
         if (parser->tokens[parser->cur].type == TOKEN_EQ){
             AST *ast2 = malloc(sizeof(AST));
@@ -401,20 +425,25 @@ AST *parser_eat_expr(Parser *parser){
     };
     ast->type = AST_UNKNOWN;
     if (parser->tokens[parser->cur].type == TOKEN_LP){
+        parser_location(parser, ast);
         parser_peek(parser);
         ast_unary(ast, AST_EXPR, parser_eat_expr(parser));
         parser_expect(parser, TOKEN_RP);
     }else if (parser->tokens[parser->cur].type == TOKEN_EXC){
+        parser_location(parser, ast);
         parser_peek(parser);
         ast_unary(ast, AST_NOT, parser_eat_expr(parser));
     }else if(parser->tokens[parser->cur].type == TOKEN_AMP){
+        parser_location(parser, ast);
         parser_peek(parser);
         ast_unary(ast, AST_REF, parser_eat_expr(parser));
     }else if (parser->tokens[parser->cur].type == TOKEN_STRING){
+        parser_location(parser, ast);
         ast_arg(ast, AST_STRING, parser->tokens[parser->cur].value);
         typeinfo(ast, KIND_CHAR, 1);
         parser_peek(parser);
     }else if(parser->tokens[parser->cur].type == TOKEN_SUB){
+        parser_location(parser, ast);
         parser_peek(parser);
         if (parser->tokens[parser->cur].type == TOKEN_INT){
             char a[500];
@@ -428,6 +457,7 @@ AST *parser_eat_expr(Parser *parser){
             error_generate_parser("AbruptEndError", "Found negative sign alone", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->name);
         }
     }else if (parser->tokens[parser->cur].type == TOKEN_INT){
+        parser_location(parser, ast);
         ast->type = AST_INT;
         typeinfo(ast, KIND_CONST, 0);
         ast->data.arg.value = parser->tokens[parser->cur].value;
@@ -440,15 +470,18 @@ AST *parser_eat_expr(Parser *parser){
         }
         parser_peek(parser);
     }else if (parser->tokens[parser->cur].type == TOKEN_FLOAT){
+        parser_location(parser, ast);
         ast_arg(ast, AST_FLOAT, parser->tokens[parser->cur].value);
         typeinfo(ast, KIND_FLOAT, 0);
         parser_peek(parser);
     }else if (parser->tokens[parser->cur].type == TOKEN_CHAR){
+        parser_location(parser, ast);
         ast_arg(ast, AST_CHAR, parser->tokens[parser->cur].value);
         typeinfo(ast, KIND_CHAR, 0);
         parser_peek(parser);
     }else if (parser->tokens[parser->cur].type == TOKEN_ID){
         if (parser->tokens[parser->cur+1].type == TOKEN_LP){
+            parser_location(parser, ast);
             ast->type = AST_FUNCALL;
             ast->data.funcall = (AST_FuncCall){};
             ast->data.funcall.args = malloc(sizeof(AST));
@@ -482,7 +515,7 @@ AST *parser_eat_expr(Parser *parser){
             if (strcmp(ast->data.funcall.name, "deref") == 0){
                 ast->type = AST_DEREF;
                 if (ast->data.funcall.argslen != 1){
-                    error_generate("DerefError", "Too less or too many arguments to deref function");
+                    error_generate_parser("DerefError", "Too many or too few arguments to deref function", token_1.row, token_1.col, token_1.name);
                 };
                 ast->data.expr.left = ast->data.funcall.args;
             }else if(strncmp(ast->data.funcall.name, "syscall", strlen("syscall")) == 0){
@@ -509,6 +542,8 @@ skip:
     return parser_eat_binary(parser, ast);
 };
 
+#define end_statement() if (semicolon){ parser_expect(parser, TOKEN_SEMICOLON); }
+
 AST *parser_eat_ast(Parser *parser){
     int a = parser->cur;
     AST *ast = malloc(sizeof(AST));
@@ -520,6 +555,7 @@ AST *parser_eat_ast(Parser *parser){
     ast->type = AST_UNKNOWN;
     if (parser->tokens[parser->cur].type == TOKEN_ID){
         if (strcmp(parser->tokens[parser->cur].value, "if") == 0) {
+            parser_location(parser, ast);
             ast->type = AST_IF;
             parser_peek(parser);
             ast->data.if1.block.condition = parser_eat_expr(parser);
@@ -586,6 +622,7 @@ AST *parser_eat_ast(Parser *parser){
                 }
             }
         }else if(strcmp(parser->tokens[parser->cur].value, "while") == 0){
+            parser_location(parser, ast);
             ast->type = AST_WHILE;
             int while_cap = 8;
             ast->data.while1.block = malloc(sizeof(AST*) * while_cap);
@@ -615,10 +652,12 @@ AST *parser_eat_ast(Parser *parser){
             }
             parser_expect(parser, TOKEN_RB);
         }else if (strcmp(parser->tokens[parser->cur].value, "return") == 0) {
+            parser_location(parser, ast);
             parser_peek(parser);
             ast->type = AST_RET;
             ast->data.ret.ret = parser_eat_expr(parser);
         }else if((is_type(parser, parser->tokens[parser->cur]) == 0)){
+            parser_location(parser, ast);
             parse_type(parser, &ast->typeinfo);
             ast->type = AST_ASSIGN;
             int idnum = parser->cur;
@@ -635,13 +674,18 @@ AST *parser_eat_ast(Parser *parser){
                 *(ast->data.assign.assignto) = (AST){0};
                 ast->data.assign.assignto->type = AST_UNKNOWN;
             }
+            end_statement();
         }else if (strcmp(parser->tokens[parser->cur].value, "return") == 0) {
+            parser_location(parser, ast);
             parser_peek(parser);
             ast->type = AST_RET;
             ast->data.ret.ret = parser_eat_expr(parser);
+            end_statement();
         }else if(strcmp(parser->tokens[parser->cur].value, "break") == 0){
+            parser_location(parser, ast);
             ast->type = AST_BREAK;
             parser_peek(parser);
+            end_statement();
         }else {
             AST *ast_expr = parser_eat_expr(parser);
             if(parser->tokens[parser->cur].type == TOKEN_EQ){
@@ -652,6 +696,7 @@ AST *parser_eat_ast(Parser *parser){
                 ast->data.assign.from = ast_expr;
                 parser_peek(parser);
                 ast->data.assign.assignto = parser_eat_expr(parser);
+                end_statement();
                 return ast;
             }else if (parser->tokens[parser->cur].type == TOKEN_LP){
                 ast->type = AST_FUNCALL;
@@ -672,17 +717,21 @@ AST *parser_eat_ast(Parser *parser){
                     if (parser->tokens[parser->cur].type == TOKEN_COMMA) {
                         parser_peek(parser);
                     } else if (parser->tokens[parser->cur].type != TOKEN_RP) {
-                        error_generate("CommaError", "Expected Comma");
+                        Token tok = parser->tokens[parser->cur];
+                        error_generate_parser("CommaError", "Expected Comma", tok.row, tok.col, tok.name);
                     }
 
                     ptr = &node->next;
                 }
                 *ptr = NULL;
                 parser_expect(parser, TOKEN_RP);
+                end_statement();
             }else {
                 return ast_expr;
             }
         }
+    }else if(parser->tokens[parser->cur].type == TOKEN_SEMICOLON){
+        parser_peek(parser);
     }else{
         AST *ast_expr = parser_eat_expr(parser);
         if(parser->tokens[parser->cur].type == TOKEN_EQ){
@@ -699,14 +748,9 @@ AST *parser_eat_ast(Parser *parser){
         }else if(is_flat == 1){
             free(ast);
             return NULL;
-        }else if(parser->tokens[parser->cur].type == TOKEN_SEMICOLON){
-
         }else {
             error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
        }
-    }
-    if (parser->tokens[parser->cur].type == TOKEN_SEMICOLON){
-        parser_peek(parser);
     }
 
     return ast;

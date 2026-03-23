@@ -70,22 +70,24 @@ void tokenizer_remove_at(Tokenizer *tokenizer, int index, int count) {
     tokenizer->tokenlen -= count;
 }
 
-void _tokenizer_append(Tokenizer *tokenizer, Token tok) {
+void __tokenizer_append(Tokenizer *tokenizer, Token tok) {
     tokenizer_ensure_capacity(tokenizer, tokenizer->tokenlen);
     tokenizer->tokens[tokenizer->tokenlen++] = tok;
 }
 
-void tokenizer_append(Tokenizer *tokenizer, int type, char *name) {
+void _tokenizer_append(Tokenizer *tokenizer, int type, char *name, int row, int col) {
     Token tok = (Token){0};
     tok.type = type;
     strncpy(tok.value, name, 89);
     tok.value[89] = '\0';
-    tok.row = tokenizer->line;
-    tok.col = tokenizer->col;
+    tok.row = row;
+    tok.col = col;
     tok.name = tokenizer->name;
 
-    _tokenizer_append(tokenizer, tok);
+    __tokenizer_append(tokenizer, tok);
 }
+
+#define tokenizer_append(tokenizer, type, name) _tokenizer_append(tokenizer, type, name, prevRow, prevCol)
 
 
 char tokenizer_token(Tokenizer *tokenizer){

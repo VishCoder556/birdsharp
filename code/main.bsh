@@ -1,17 +1,18 @@
+#!semicolon
+#!autovar
 #!include "std.bsh"
-#!autovar;
 
 long fibonacci(long n) {
     if (n < 2) {
         return n
-    }
+    };
     long a = 0;
     long b = 1;
     long i = 2;
     long temp = 0;
     
     while (i <= n) {
-        temp = a + b
+        temp = a + b;
         a = b;
         b = temp;
         i = i + 1;
@@ -20,14 +21,5 @@ long fibonacci(long n) {
 }
 
 i32 main(i32 argc, char **argv){
-    long k = 0
-    while (k <= 90){
-        print("Fibonacci(")
-        print(long_to_string(k))
-        print(") = ")
-        print(long_to_string(fibonacci(k)))
-        print("\n")
-        k = k + 1
-    }
-    return 5;
+    return 0;
 }

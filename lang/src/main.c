@@ -185,7 +185,6 @@ int main(int argc, char **argv){
 
     Tokenizer *tokenizer = tokenizer_init(input_file);
     while(tokenizer_token(tokenizer) != -1){};
-    tokenizer_free_code(tokenizer);
 
     clockstart("Preprocessor");
     
@@ -201,14 +200,17 @@ int main(int argc, char **argv){
 
     clockstart("Typechecking");
 
+
     Typechecker *typechecker = typechecker_init(parser);
     while (typechecker_eat_ast(typechecker) != -1){};
 
     clockstart("Transpiling");
 
+
     Generator *generator = generator_make(typechecker, ir);
     
     clockstart("Compiling");
+
 
     char cmd[256];
     snprintf(cmd, sizeof(cmd), "irc %s -target arm64 -o %s", generator->output->filename, output_file);
