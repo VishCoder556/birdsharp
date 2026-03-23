@@ -366,10 +366,10 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         };
     }
     if (parser->tokens[parser->cur].type == TOKEN_EXC){
-        parser_location(parser, ast2);
         parser_peek(parser);
         if (parser->tokens[parser->cur].type == TOKEN_EQ){
             AST *ast2 = malloc(sizeof(AST));
+            parser_location(parser, ast2);
             *ast2 = (AST){0};
             ast2->type = AST_NEQ;
             ast2->data.expr.left = ast;
