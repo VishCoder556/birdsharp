@@ -315,9 +315,9 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
             if (ast.data.expr.right->type == AST_INT){
                 int right_ = atoi(ast.data.expr.right->data.arg.value);
                 int len_ = typeinfo.data.array.size;
-                if (right_ > len_){
+                if (right_ >= len_){
                     char string[100];
-                    snprintf(string, 100, "Invalid array index: Getting index %d of an array with length %d", right_, len_);
+                    snprintf(string, 100, "Index %d, or the %dth element of an array, is past the end of an array with length %d", right_, right_+1, len_);
                     error_generate_parser("ArraySubscriptError", strdup(string), ast.row, ast.col, ast.filename);
                 }
             }

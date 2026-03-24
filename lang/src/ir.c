@@ -473,22 +473,24 @@ char *ir_generate_expr(void *generator, AST ast){
             generator_write_text(generator, "\n");
         }
         if (safe == 1){
-            char lbl[100];
-            generator_write_text(generator, "\t");
-            generator_write_text(generator, reg1);
-            generator_write_text(generator, " = ");
-            generator_write_text(generator, reg2);
-            generator_write_text(generator, " > ");
-            snprintf(lbl, 100, "%d", typeinfo_to_len(ast.data.expr.left->typeinfo));
-            generator_write_text(generator, lbl);
-            snprintf(lbl, 100, "_LBC_%d", lblN++);
-            generator_write_text(generator, "\n\tjump labelend ");
-            generator_write_text(generator, lbl);
-            generator_write_text(generator, " if ");
-            generator_write_text(generator, reg1);
-            generator_write_text(generator, "\n%label ");
-            generator_write_text(generator, lbl);
-            generator_write_text(generator, "{\n\ta0 = -1\n\tcall exit\n}\n"); // We don't have real error messages yet
+            if (ast.data.expr.left->typeinfo.kind == KIND_ARRAY){
+                char lbl[100];
+                generator_write_text(generator, "\t");
+                generator_write_text(generator, reg1);
+                generator_write_text(generator, " = ");
+                generator_write_text(generator, reg2);
+                generator_write_text(generator, " >= ");
+                snprintf(lbl, 100, "%d", typeinfo_to_len(ast.data.expr.left->typeinfo));
+                generator_write_text(generator, lbl);
+                snprintf(lbl, 100, "_LBC_%d", lblN++);
+                generator_write_text(generator, "\n\tjump labelend ");
+                generator_write_text(generator, lbl);
+                generator_write_text(generator, " if ");
+                generator_write_text(generator, reg1);
+                generator_write_text(generator, "\n%label ");
+                generator_write_text(generator, lbl);
+                generator_write_text(generator, "{\n\ta0 = -1\n\tsyscall.exit\n}\n"); // We don't have real error messages yet
+            }
         }
         move(generator, *ast.data.expr.left, reg1);
         generator_write_text(generator, "\tadd ");

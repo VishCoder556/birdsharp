@@ -21,7 +21,6 @@ long fibonacci(long n) {
 
 i32 main(i32 argc, char **argv){
     int[10] a
-    a[9] = 100
-    int b = 100
+    int b = 11
     return a[b];
 }

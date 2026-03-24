@@ -128,7 +128,7 @@ Compiler *x86_64_init(Reviser *reviser, char *file){
     compiler->cur = 0;
     compiler->templabel = 0;
     compiler->global = reviser->global;
-    fprintf(compiler->f, "default rel\nBITS 64\nsection .text\nglobal main\n");
+    fprintf(compiler->f, "default rel\nBITS 64\nsection .text\nglobal _main\n");
     return compiler;
 }
 
@@ -149,7 +149,7 @@ void x86_64_close(Compiler *compiler){
     remove(compiler->_asm);
     snprintf(string, 1024, 
         "clang -O0 -fno-stack-protector -fno-common -fno-asynchronous-unwind-tables "
-        "-arch x86_64 %s -o %s -e main -Wl,-w -Wl,-platform_version,macos,11.0,11.0", 
+        "-arch x86_64 %s -o %s -e _main -Wl,-w -Wl,-platform_version,macos,11.0,11.0", 
         compiler->_o, compiler->name);
     system(string);
     remove(compiler->_o);
