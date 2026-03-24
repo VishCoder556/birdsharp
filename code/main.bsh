@@ -19,10 +19,9 @@ long fibonacci(long n) {
     return b;
 }
 
-
 i32 main(i32 argc, char **argv){
     int[10] a
     a[9] = 100
-    int b = 9
+    int b = 100
     return a[b];
 }

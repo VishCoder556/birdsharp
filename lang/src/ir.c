@@ -487,7 +487,7 @@ char *ir_generate_expr(void *generator, AST ast){
             generator_write_text(generator, reg1);
             generator_write_text(generator, "\n%label ");
             generator_write_text(generator, lbl);
-            generator_write_text(generator, "{\n\ta0 = 1\n\tcall exit\n}\n");
+            generator_write_text(generator, "{\n\ta0 = -1\n\tcall exit\n}\n"); // We don't have real error messages yet
         }
         move(generator, *ast.data.expr.left, reg1);
         generator_write_text(generator, "\tadd ");
