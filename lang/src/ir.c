@@ -359,6 +359,7 @@ char *ir_generate_expr(void *generator, AST ast){
             move(generator, args[idx], string);
             free_temp(string);
         };
+        free(args);
         generator_write_text(generator, "\tcall ");
         generator_write_text(generator, ast.data.funcall.name);
         generator_write_text(generator, "\n");
