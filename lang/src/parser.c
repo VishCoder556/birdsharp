@@ -108,6 +108,10 @@ char *shorthand_mode(char *mode){
         return "statement.break.semicolon";
     }else if (strcmp(mode, "nosemicolon") == 0){
         return "statement.break.none";
+    }else if (strcmp(mode, "safe") == 0){
+        return "mode.safe";
+    }else if (strcmp(mode, "unsafe") == 0){
+        return "mode.unsafe";
     }
     return mode;
 }
@@ -127,7 +131,12 @@ bool is_mode(char *mode){
         return 1;
     }else if(strcmp(mode, "statement.break.none") == 0){
         return 1;
+    }else if(strcmp(mode, "mode.safe") == 0){
+        return 1;
+    }else if(strcmp(mode, "mode.unsafe") == 0){
+        return 1;
     }
+
 
     return false;
 }

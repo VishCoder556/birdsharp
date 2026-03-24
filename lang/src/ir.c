@@ -82,6 +82,7 @@ void ir_init(void *generator){
     };
     char *v0_reg = ir_alloc_reg();
     generator_open_text(generator);
+    // generator_write_text();
 };
 
 bool is_imm_or_reg(AST *ast){
@@ -290,8 +291,22 @@ char *move(void *generator, AST ast, char *reg){
     free_temp(reg2);\
     return reg1;
 
+
+int safe = 0;
+
+void ir_generate_mode(void *generator, AST ast){
+    if (strcmp(ast.data.mode.name, "mode.safe") == 0){
+        safe = 1;
+    }else if (strcmp(ast.data.mode.name, "mode.unsafe") == 0){
+        safe = 0;
+    }
+}
+int lblN = 0;
+
 char *ir_generate_expr(void *generator, AST ast){
-    if (ast.type == AST_PLUS){
+    if (ast.type == AST_MODE){
+        ir_generate_mode(generator, ast);
+    }else if (ast.type == AST_PLUS){
         bin_op("add");
     }else if (ast.type == AST_SUB){
         bin_op("sub");
@@ -331,13 +346,17 @@ char *ir_generate_expr(void *generator, AST ast){
         return reg;
     }else if(ast.type == AST_FUNCALL){
         AST *argcur = ast.data.funcall.args;
+        AST *args = malloc(sizeof(AST) * ast.data.funcall.argslen);
+        for (int i=0; i<ast.data.funcall.argslen; i++){
+            args[i] = *argcur;
+            argcur = argcur->next;
+        };
         for (int i=ast.data.funcall.argslen; i > 0; i--){
             char string[100];
             snprintf(string, 100, "a%d", i-1);
             ir_allocate_reg(string);
             int idx = i == 0 ? 0 : i-1;
-            move(generator, *argcur, string);
-            argcur = argcur->next;
+            move(generator, args[idx], string);
             free_temp(string);
         };
         generator_write_text(generator, "\tcall ");
@@ -442,7 +461,6 @@ char *ir_generate_expr(void *generator, AST ast){
         int len = typeinfo_to_len(ast.typeinfo);
         char *reg2 = ir_alloc_reg();
         char *reg1 = ir_alloc_reg();
-        move(generator, *ast.data.expr.left, reg1);
         move(generator, *ast.data.expr.right, reg2);
         if (len != 1){
             generator_write_text(generator, "\tmul ");
@@ -453,6 +471,25 @@ char *ir_generate_expr(void *generator, AST ast){
             generator_write_text(generator, strdup(string));
             generator_write_text(generator, "\n");
         }
+        if (safe == 1){
+            char lbl[100];
+            generator_write_text(generator, "\t");
+            generator_write_text(generator, reg1);
+            generator_write_text(generator, " = ");
+            generator_write_text(generator, reg2);
+            generator_write_text(generator, " > ");
+            snprintf(lbl, 100, "%d", typeinfo_to_len(ast.data.expr.left->typeinfo));
+            generator_write_text(generator, lbl);
+            snprintf(lbl, 100, "_LBC_%d", lblN++);
+            generator_write_text(generator, "\n\tjump labelend ");
+            generator_write_text(generator, lbl);
+            generator_write_text(generator, " if ");
+            generator_write_text(generator, reg1);
+            generator_write_text(generator, "\n%label ");
+            generator_write_text(generator, lbl);
+            generator_write_text(generator, "{\n\ta0 = 1\n\tcall exit\n}\n");
+        }
+        move(generator, *ast.data.expr.left, reg1);
         generator_write_text(generator, "\tadd ");
         generator_write_text(generator, reg1);
         generator_write_text(generator, ", ");
@@ -473,8 +510,6 @@ char *ir_generate_expr(void *generator, AST ast){
         return r;
     }else if(ast.type == AST_UNKNOWN){
 
-    }else if(ast.type == AST_MODE){
-
     }else {
         char string[100];
         snprintf(string, 100, "Unknown type found: '%d'", ast.type);
@@ -484,7 +519,9 @@ char *ir_generate_expr(void *generator, AST ast){
 };
 
 char *ir_generate_lhs(void *generator, AST ast){
-    if (ast.type == AST_VAR){
+    if (ast.type == AST_MODE){
+        ir_generate_mode(generator, ast);
+    }else if (ast.type == AST_VAR){
         return ast.data.arg.value;
     }else if(ast.type == AST_CAST){
         return ir_generate_lhs(generator, *ast.data.expr.left);
@@ -518,12 +555,13 @@ char *ir_generate_lhs(void *generator, AST ast){
     return "";
 }
 
-int lblN = 0;
 char *current_function = "";
 
 void ir_generate_stmnt(void *generator, AST ast);
 void ir_generate_stmnt(void *generator, AST ast){
-    if (ast.type == AST_RET){
+    if (ast.type == AST_MODE){
+        ir_generate_mode(generator, ast);
+    }else if (ast.type == AST_RET){
         if (strcmp(current_function, "main") == 0){
             move(generator, *ast.data.ret.ret, "a0");
             generator_write_text(generator, "\tsyscall.exit\n");
@@ -668,8 +706,9 @@ void ir_generate_stmnt(void *generator, AST ast){
 };
 
 void ir_generate_ast(void *generator, AST ast){
-    // printf("Hi\n");
-    if (ast.type == AST_FUNCDEF){
+    if (ast.type == AST_MODE){
+        ir_generate_mode(generator, ast);
+    }else if (ast.type == AST_FUNCDEF){
         for (int i=0; i<REGISTERS; i++){
             IRRegs[i].available = true;
         }
@@ -702,8 +741,6 @@ void ir_generate_ast(void *generator, AST ast){
         arena_sb_append_cstr(&arena, &IrData, ir_generate_expr(generator, *ast.data.assign.assignto));
         arena_sb_append_cstr(&arena, &IrData, "\n");
     }else if(ast.type == AST_UNKNOWN){
-        ;
-    }else if(ast.type == AST_MODE){
         ;
     }else if(ast.type == AST_STRUCT){
         ;

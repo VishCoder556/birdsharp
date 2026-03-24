@@ -375,6 +375,10 @@ void typechecker_mode(Typechecker *typechecker, AST *ast){
         var_auto = 1;
     }else if (strcmp(ast->data.mode.name, "declaration.var.strict") == 0){
         var_auto = 0;
+    }else if (strcmp(ast->data.mode.name, "mode.safe") == 0){
+        // Save for IR stages
+    }else if (strcmp(ast->data.mode.name, "mode.unsafe") == 0){
+        // Save for IR stages
     }else {
         char string[230];
         snprintf(string, 230, "Unknown mode '%s'", ast->data.mode.name);

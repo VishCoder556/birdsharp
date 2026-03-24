@@ -108,4 +108,4 @@ Generator *_generator_make(Typechecker *typechecker, Generator_Functions functio
 };
 
 #define generator_make(typechecker, prefix) _generator_make(typechecker, (Generator_Functions){.init=prefix##_init, .generate_ast=prefix##_generate_ast, .close=prefix##_close})
-#define generator_clean(generator) remove(generator->output->filename)
+#define generator_clean(generator) // remove(generator->output->filename)
