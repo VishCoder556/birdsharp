@@ -121,12 +121,16 @@ Compiler *arm64_init(Reviser *reviser, char *file){
     compiler->cur = 0;
     compiler->templabel = 0;
     compiler->global = reviser->global;
-    fprintf(compiler->f, ".text\n.globl _main\n");
+    fprintf(compiler->f, ".text\n.globl main\n");
     return compiler;
 }
 
 void arm64_close(Compiler *compiler){
-    fprintf(compiler->f, ".section __DATA,__data\n%s\n", compiler->data);
+    if (target == TARGET_ARM64_MAC){
+        fprintf(compiler->f, ".section __DATA,__data\n%s\n", compiler->data);
+    }else if (target == TARGET_ARM64_LINUX){
+        fprintf(compiler->f, ".data\n%s\n", compiler->data);
+    }
     fclose(compiler->f);
     free(compiler->data);
     char string[1024];
@@ -135,14 +139,22 @@ void arm64_close(Compiler *compiler){
     // system(string);
     // snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
     // system(string);
-    snprintf(string, 1024, "clang -arch arm64 -c %s -o %s", compiler->_asm, compiler->_o);
+    snprintf(string, 1024, "clang %s -c %s -o %s", target == TARGET_ARM64_MAC ? "-arch" : "", compiler->_asm, compiler->_o);
     system(string);
     remove(compiler->_asm);
-   snprintf(string, 1024, 
-    "clang -O0 -fno-stack-protector -fno-common -fno-exceptions "
-    "-arch arm64 %s -o %s -e _main -Wl,-w "
-    "-Wl,-platform_version,macos,11.0,11.0 -lc", 
-    compiler->_o, compiler->name); 
+    if (target == TARGET_ARM64_MAC){
+       snprintf(string, 1024, 
+        "clang -O0 -fno-stack-protector -fno-common -fno-exceptions "
+        "-arch arm64 %s -o %s -e main -Wl,-w "
+        "-Wl,-platform_version,macos,11.0,11.0 -lc", 
+        compiler->_o, compiler->name); 
+    }else if (target == TARGET_ARM64_LINUX){
+// Hope the target system is linux
+        snprintf(string, 1024, 
+        "clang  -target aarch64-unknown-linux-gnu -O0 -fno-stack-protector -fno-common -fno-exceptions "
+        "%s -o %s -e main -Wl,-w -lc", 
+        compiler->_o, compiler->name);
+    }
     system(string);
     remove(compiler->_o);
 }
@@ -624,7 +636,7 @@ void arm64_eat_body(Compiler *compiler){
         snprintf(string, 100, "_fun%s", ast.data.funcdef.name);
         char *name = strdup(string);
         if (string_compare(name, "_funmain", strlen(name)) == 0) {
-            name = "_main";
+            name = "main";
         }
         compiler->templabel = 0;
         compiler_write_text(compiler, "%s:\n", name);
