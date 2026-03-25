@@ -9,14 +9,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include "../../../libs/inout.c"
-#include "../../../libs/string.c"
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <stdlib.h>
+#include "../../utils/inout.c"
+#include "../../utils/string.c"
 #include "include/tokenizer.h"
 
 #define REGISTERS 32
@@ -124,35 +125,35 @@ int main(int argc, char **argv){
     char *output_file = "";
     Mode mode = MODE_ASM;
     while (*argv){
-        if (string_compare(*argv, "-o", strlen(*argv)) == 0){
+        if (strncmp(*argv, "-o", strlen(*argv)) == 0){
             argv++;
             output_file = *argv;
         }
-        if (string_compare(*argv, "--simulate", strlen(*argv)) == 0){
+        if (strncmp(*argv, "--simulate", strlen(*argv)) == 0){
             mode = MODE_SIMULATE;
         }
-        if (string_compare(*argv, "-target", strlen(*argv)) == 0){
+        if (strncmp(*argv, "-target", strlen(*argv)) == 0){
             argv++;
-            if (string_compare(*argv, "x86_64-mac", string_len(*argv)) == 0){
+            if (strncmp(*argv, "x86_64-mac", string_len(*argv)) == 0){
                 target = TARGET_X86_64_MAC;
-            }else if (string_compare(*argv, "arm64-mac", string_len(*argv)) == 0){
+            }else if (strncmp(*argv, "arm64-mac", string_len(*argv)) == 0){
                 target = TARGET_ARM64_MAC;
-            }else if (string_compare(*argv, "arm64-linux", string_len(*argv)) == 0){
+            }else if (strncmp(*argv, "arm64-linux", string_len(*argv)) == 0){
                 target = TARGET_ARM64_LINUX;
-            }else if (string_compare(*argv, "x64-windows", string_len(*argv)) == 0){
+            }else if (strncmp(*argv, "x64-windows", string_len(*argv)) == 0){
                 target = TARGET_WINDOWS;
-            }else if (string_compare(*argv, "wasm", string_len(*argv)) == 0){
+            }else if (strncmp(*argv, "wasm", string_len(*argv)) == 0){
                 mode = MODE_WASM;
             }else {
                 target = TARGET_UNKNOWN;
             };
         }
-        if (string_compare(input_file, "", string_len(input_file)) == 0){
+        if (strncmp(input_file, "", string_len(input_file)) == 0){
             input_file = *argv;
         }
         argv++;
     }
-    if (string_compare(output_file, "", string_len(output_file)) == 0){
+    if (strncmp(output_file, "", string_len(output_file)) == 0){
         output_file = "res/main";
     }
 
