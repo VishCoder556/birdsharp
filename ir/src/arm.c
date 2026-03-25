@@ -285,8 +285,13 @@ char *arm64_eat_call(Compiler *compiler, AST ast){
     return "";
 }
 void arm64_eat_syscall(Compiler *compiler, AST ast){
-    compiler_write_text_line(compiler, "ldr x16, =%s", ast.data.text.value);
-    compiler_write_text_line(compiler, "svc #0x80");
+    if (target == TARGET_ARM64_MAC){
+        compiler_write_text_line(compiler, "ldr x16, =%s", ast.data.text.value);
+        compiler_write_text_line(compiler, "svc #0x80");
+    }else if (target == TARGET_ARM64_LINUX){
+        compiler_write_text_line(compiler, "ldr x8, =%s", ast.data.text.value);
+        compiler_write_text_line(compiler, "svc 0");
+    }
 }
 
 

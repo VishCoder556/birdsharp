@@ -20,7 +20,6 @@ long fibonacci(long n) {
 }
 
 i32 main(i32 argc, char **argv){
-    int[10] a
-    int b = 11
-    return a[b];
+    print("Hello World\n")
+    return 0;
 }

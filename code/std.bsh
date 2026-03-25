@@ -1,7 +1,7 @@
-int PROT_READ_WRITE = 3
-int MAP_PRIVATE_ANON = 4098
-int STDOUT = 1
-int STDERR = 2
+#!define PROT_READ_WRITE = 3;
+#!define MAP_PRIVATE_ANON = 4098;
+#!define STDOUT = 1;
+#!define STDERR = 2;
 
 int string_len(char *a){
     int i = 0;

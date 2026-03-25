@@ -28,11 +28,11 @@ typedef struct {
 #include "include/parser.h"
 
 typedef enum {
-    TARGET_X86_64,
-    TARGET_ARM64,
+    TARGET_X86_64_MAC,
+    TARGET_ARM64_MAC,
+    TARGET_ARM64_LINUX,
     TARGET_WINDOWS,
     TARGET_WASM,
-    TARGET_LINUX,
     TARGET_UNKNOWN
 }TargetFormat;
 
@@ -40,9 +40,9 @@ typedef enum {
     TargetFormat target = TARGET_WINDOWS;
     target = TARGET_WINDOWS;
 #elif __APPLE__
-    TargetFormat target = TARGET_X86_64;
+    TargetFormat target = TARGET_X86_64_MAC;
 #elif __linux__
-    TargetFormat target = TARGET_LINUX;
+    TargetFormat target = TARGET_ARM64_LINUX;
 #else
     TargetFormat target = TARGET_UNKNOWN;
 #endif
@@ -133,11 +133,13 @@ int main(int argc, char **argv){
         }
         if (string_compare(*argv, "-target", strlen(*argv)) == 0){
             argv++;
-            if (string_compare(*argv, "x86_64", string_len(*argv)) == 0){
-                target = TARGET_X86_64;
-            }else if (string_compare(*argv, "arm64", string_len(*argv)) == 0){
-                target = TARGET_ARM64;
-            }else if (string_compare(*argv, "windows-x64", string_len(*argv)) == 0){
+            if (string_compare(*argv, "x86_64-mac", string_len(*argv)) == 0){
+                target = TARGET_X86_64_MAC;
+            }else if (string_compare(*argv, "arm64-mac", string_len(*argv)) == 0){
+                target = TARGET_ARM64_MAC;
+            }else if (string_compare(*argv, "arm64-linux", string_len(*argv)) == 0){
+                target = TARGET_ARM64_LINUX;
+            }else if (string_compare(*argv, "x64-windows", string_len(*argv)) == 0){
                 target = TARGET_WINDOWS;
             }else if (string_compare(*argv, "wasm", string_len(*argv)) == 0){
                 mode = MODE_WASM;
@@ -177,12 +179,12 @@ int main(int argc, char **argv){
 
 
     if (mode == MODE_ASM){
-    if (target == TARGET_ARM64){
+    if (target == TARGET_ARM64_LINUX || target == TARGET_ARM64_MAC){
         Compiler *compiler = arm64_init(reviser, output_file);
         while (arm64_eat(compiler) != -1){
         };
         arm64_close(compiler);
-    }else if(target == TARGET_X86_64){
+    }else if(target == TARGET_X86_64_MAC){
         Compiler *compiler = x86_64_init(reviser, output_file);
         while (x86_64_eat(compiler) != -1){
         };

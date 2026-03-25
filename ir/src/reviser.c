@@ -133,9 +133,9 @@ void revise_var(Reviser *reviser, AST *ast, char *name){
     Reviser_Scope functionscope = reviser_get_function(reviser->global->functions, reviser->global->functionlen-1)->scope;
     int off = 0;
     switch (target){
-        case TARGET_ARM64: break;
-        case TARGET_X86_64: off = 150; break;
-        case TARGET_LINUX: break;
+        case TARGET_ARM64_MAC:
+        case TARGET_ARM64_LINUX: break;
+        case TARGET_X86_64_MAC: off = 150; break;
         default: break;
     }
     for (int i=0; i<functionscope.variablelen; i++){
@@ -380,44 +380,44 @@ void reviser_eat_ast(Reviser *reviser, AST *ast){
         char *res = "";
         if (string_compare(name, "write", strlen(name)) == 0){
             switch (target){
-                case TARGET_ARM64: res = "33554436"; break;
-                case TARGET_X86_64: res = "33554436"; break;
-                case TARGET_LINUX: res = "1"; break;
+                case TARGET_ARM64_MAC:
+                case TARGET_X86_64_MAC: res = "33554436"; break;
+                case TARGET_ARM64_LINUX: res = "1"; break;
                 default: break;
             }
         }else if (string_compare(name, "exit", strlen(name)) == 0){
             switch (target){
-                case TARGET_X86_64: res = "33554433"; break;
-                case TARGET_ARM64: res = "33554433"; break;
-                case TARGET_LINUX: res = "60"; break;
+                case TARGET_ARM64_MAC:
+                case TARGET_X86_64_MAC: res = "33554433"; break;
+                case TARGET_ARM64_LINUX: res = "60"; break;
                 default: break;
             }
         }else if (string_compare(name, "mmap", strlen(name)) == 0){
             switch (target){
-                case TARGET_ARM64: res = "33554629"; break;
-                case TARGET_X86_64: res = "33554629"; break;
-                case TARGET_LINUX: res = "9"; break;
+                case TARGET_ARM64_MAC:
+                case TARGET_X86_64_MAC: res = "33554629"; break;
+                case TARGET_ARM64_LINUX: res = "9"; break;
                 default: break;
             }
         } else if (string_compare(name, "read", strlen(name)) == 0) {
             switch (target) {
-                case TARGET_ARM64: res = "33554435"; break;
-                case TARGET_X86_64: res = "33554435"; break;
-                case TARGET_LINUX: res = "0"; break;
+                case TARGET_ARM64_MAC:
+                case TARGET_X86_64_MAC: res = "33554435"; break;
+                case TARGET_ARM64_LINUX: res = "0"; break;
                 default: break;
             }
         } else if (string_compare(name, "open", strlen(name)) == 0) {
             switch (target) {
-                case TARGET_ARM64: res = "33554437"; break;
-                case TARGET_X86_64: res = "33554437"; break;
-                case TARGET_LINUX: res = "2"; break;
+                case TARGET_ARM64_MAC:
+                case TARGET_X86_64_MAC: res = "33554437"; break;
+                case TARGET_ARM64_LINUX: res = "2"; break;
                 default: break;
             }
         } else if (string_compare(name, "close", strlen(name)) == 0) {
             switch (target) {
-                case TARGET_ARM64: res = "33554438"; break;
-                case TARGET_X86_64: res = "33554438"; break;
-                case TARGET_LINUX: res = "3"; break;
+                case TARGET_ARM64_MAC:
+                case TARGET_X86_64_MAC: res = "33554438"; break;
+                case TARGET_ARM64_LINUX: res = "3"; break;
                 default: break;
             }
         }
