@@ -374,7 +374,7 @@ char *ir_generate_expr(void *generator, AST ast){
         return ir_generate_expr(generator, *ast.data.expr.left);
     }else if (ast.type == AST_VAR){
         char string[100];
-        if (ast.typeinfo.kind == KIND_ARRAY) {
+        if (ast.typeinfo.kind == KIND_ARRAY || ast.typeinfo.kind == KIND_STRUCT) {
             snprintf(string, 100, "&%s", ast.data.arg.value);
             return strdup(string); 
         }
@@ -456,6 +456,14 @@ char *ir_generate_expr(void *generator, AST ast){
         free_temp(lhs);
         free_temp(rhs);
         return strdup(string);
+    }else if(ast.type == AST_AND){
+        char *lhs = ir_generate_expr(generator, *ast.data.expr.left);
+        char *rhs = ir_generate_expr(generator, *ast.data.expr.right);
+        char string[100];
+        snprintf(string, 100, "%s <= %s", lhs, rhs);
+        free_temp(lhs);
+        free_temp(rhs);
+        return strdup(string);
     }else if(ast.type == AST_MODULO){
         bin_op("mod");
     }else if(ast.type == AST_INDEX){
@@ -513,6 +521,30 @@ char *ir_generate_expr(void *generator, AST ast){
         return r;
     }else if(ast.type == AST_UNKNOWN){
 
+    }else if (ast.type == AST_ACCESS){
+        char *structname = ast.data.access.left->typeinfo.type;
+        AST *structdef = NULL;
+        for (int i=0; i<typesLen; i++){
+            if (strcmp(types[i].name, structname) == 0){
+                structdef = types[i].ref;
+            }
+        }
+        char *reg1 = ir_alloc_reg();
+        move(generator, *ast.data.access.left, reg1);
+        char string[100];
+
+        if (structdef != NULL){
+            int len = 0;
+            for (int i=0; i<structdef->data.struct1.memberlen; i++){
+                AST_StructMember a = structdef->data.struct1.members[i];
+                if (strcmp(a.name, ast.data.access.right) == 0){
+                    snprintf(string, 100, "%s [%s + %d]", type_to_selector(ast.typeinfo), reg1, len);
+                }
+                len += typeinfo_to_len(a.type);
+            };
+        }
+        free_temp(strdup(reg1));
+        return strdup(string);
     }else {
         char string[100];
         snprintf(string, 100, "Unknown type found: '%d'", ast.type);
@@ -522,7 +554,33 @@ char *ir_generate_expr(void *generator, AST ast){
 };
 
 char *ir_generate_lhs(void *generator, AST ast){
-    if (ast.type == AST_MODE){
+    if (ast.type == AST_ACCESS){
+        fflush(stdout);
+        char *structname = ast.data.access.left->typeinfo.type;
+        AST *structdef = NULL;
+        for (int i=0; i<typesLen; i++){
+            if (strcmp(types[i].name, structname) == 0){
+                structdef = types[i].ref;
+            }
+        }
+        char *reg1 = ir_alloc_reg();
+        move(generator, *ast.data.access.left, reg1);
+        char string[100];
+
+        if (structdef != NULL){
+            int len = 0;
+            for (int i=0; i<structdef->data.struct1.memberlen; i++){
+                AST_StructMember a = structdef->data.struct1.members[i];
+                if (strcmp(a.name, ast.data.access.right) == 0){
+                    snprintf(string, 100, "%s [%s + %d]", type_to_selector(ast.typeinfo), reg1, len);
+                }
+                len += typeinfo_to_len(a.type);
+            };
+        }
+        free_temp(strdup(reg1));
+        fflush(stdout);
+        return strdup(string);
+    }else if (ast.type == AST_MODE){
         ir_generate_mode(generator, ast);
     }else if (ast.type == AST_VAR){
         return ast.data.arg.value;
@@ -744,9 +802,7 @@ void ir_generate_ast(void *generator, AST ast){
         arena_sb_append_cstr(&arena, &IrData, ir_generate_expr(generator, *ast.data.assign.assignto));
         arena_sb_append_cstr(&arena, &IrData, "\n");
     }else if(ast.type == AST_UNKNOWN){
-        ;
     }else if(ast.type == AST_STRUCT){
-        ;
     }else {
         char string[100];
         snprintf(string, 100, "Unknown type found: '%d'", ast.type);

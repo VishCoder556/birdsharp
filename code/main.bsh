@@ -19,7 +19,13 @@ long fibonacci(long n) {
     return b;
 }
 
+struct Hello {
+    int a
+    int b
+}
+
 i32 main(i32 argc, char **argv){
-    print("Hello World\n")
-    return 0;
+    struct Hello a
+    a.b = 5
+    return a.b;
 }

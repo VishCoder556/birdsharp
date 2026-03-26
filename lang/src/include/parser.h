@@ -36,7 +36,8 @@ typedef enum{
     AST_AND,
     AST_OR,
     AST_INDEX,
-    AST_STRUCT
+    AST_STRUCT,
+    AST_ACCESS
 }AST_Type;
 
 typedef struct AST AST;
@@ -147,6 +148,11 @@ typedef struct {
     int memberlen;
 } AST_Struct;
 
+typedef struct {
+    AST *left;
+    char *right;
+}AST_StructAccess;
+
 typedef union {
     AST_FuncDef funcdef;
     AST_FuncCall funcall;
@@ -158,6 +164,7 @@ typedef union {
     AST_While while1;
     AST_Mode mode;
     AST_Struct struct1;
+    AST_StructAccess access;
 } AST_Data;
 
 struct AST {
@@ -192,9 +199,10 @@ struct Pair {
     char *name;
     int length;
     char *longname;
+    AST *ref;
 };
 
-struct Pair types[] = {
+struct Pair types[100] = {
     (struct Pair){KIND_I32, "int", 4, "integer"},
     (struct Pair){KIND_CHAR, "char", 1, "character"},
     (struct Pair){KIND_I64, "long", 8, "long integer"},
@@ -208,4 +216,4 @@ struct Pair types[] = {
     (struct Pair){KIND_ARRAY, "array", -1, "array of values"},
     (struct Pair){KIND_AUTO, "var", 8, "automatic value"},
 };
-int typesLen = sizeof(types) / sizeof(types[0]);
+int typesLen = 12;

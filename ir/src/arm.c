@@ -139,7 +139,7 @@ void arm64_close(Compiler *compiler){
     // system(string);
     // snprintf(string, 100, "cat %s | pbcopy", compiler->_asm);
     // system(string);
-    snprintf(string, 1024, "clang %s -c %s -o %s", target == TARGET_ARM64_MAC ? "-arch" : "", compiler->_asm, compiler->_o);
+    snprintf(string, 1024, "clang %s -c %s -o %s", target == TARGET_ARM64_MAC ? "-arch arm64" : "", compiler->_asm, compiler->_o);
     system(string);
     remove(compiler->_asm);
     if (target == TARGET_ARM64_MAC){
@@ -326,7 +326,8 @@ char *arm64_eat_expr(Compiler *compiler, AST *ast, int size){
             snprintf(string, 100, "x21"); 
             return strdup(string);
         } else {
-            snprintf(string, 100, "[x29, #-%d]", ast->data.var.offset);
+            compiler_write_text_line(compiler, "add x21, x29, #-%d", ast->data.var.offset);
+            snprintf(string, 100, "[x21]");
             return strdup(string);
         }
     }else if(ast->type == AST_REG){
@@ -373,19 +374,19 @@ char *arm64_eat_expr(Compiler *compiler, AST *ast, int size){
 
         if (strncmp(buf, "rel ", 4) == 0) {
             char *label = buf + 4;
-            compiler_write_text_line(compiler, "adrp x21, %s@PAGE", label);
-            compiler_write_text_line(compiler, "add x21, x21, %s@PAGEOFF", label);
+            compiler_write_text_line(compiler, "adrp x11, %s@PAGE", label);
+            compiler_write_text_line(compiler, "add x11, x11, %s@PAGEOFF", label);
         } 
         else if (buf[0] == '[') {
             char clean_buf[100];
             strncpy(clean_buf, buf + 1, strlen(buf) - 2);
             clean_buf[strlen(buf) - 2] = '\0';
-            compiler_write_text_line(compiler, "add x21, %s", clean_buf);
+            compiler_write_text_line(compiler, "mov x11, %s", clean_buf);
         }
         else {
-            compiler_write_text_line(compiler, "mov x21, %s", buf);
+            compiler_write_text_line(compiler, "mov x11, %s", buf);
         }
-        return "x21";
+        return "x11";
     }else if(ast->type == AST_CALL || ast->type == AST_CALLIF || ast->type == AST_CALLIFN){
         return arm64_eat_call(compiler, *ast);
     }else if(ast->type == AST_DEREF){
@@ -438,7 +439,8 @@ char *arm64_eat_lhs(Compiler *compiler, AST ast, int size){
             return left->data.text.value;
         }else {
             char string[100];
-            snprintf(string, 100, "[x29, #-%d]", left->data.var.offset);
+            compiler_write_text_line(compiler, "add x21, x29, #-%d", left->data.var.offset);
+            snprintf(string, 100, "[x21]");
             return strdup(string);
         }
     }else if(left->type == AST_REG){

@@ -222,7 +222,33 @@ bool are_equal(AST_TypeInfo *left, AST_TypeInfo *right){
 void typechecker_eat(Typechecker *typechecker, AST *ast);
 AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
     AST ast = *_ast;
-    if (ast.type == AST_RET){
+    if (ast.type == AST_ACCESS){
+        printf("");
+        typechecker_eat(typechecker, ast.data.access.left);
+        if (ast.data.access.left->typeinfo.kind != KIND_STRUCT){
+            char string[100];
+            snprintf(string, 100, "Memory access operation expects the left hand side to be a struct");
+            error_generate_parser("StructError", string, ast.row, ast.col, ast.filename);
+        }
+        char *structname = ast.data.access.left->typeinfo.type;
+        AST *structdef = NULL;
+        for (int i=0; i<typesLen; i++){
+            if (strcmp(types[i].name, structname) == 0){
+                structdef = types[i].ref;
+            }
+        }
+        if (structdef != NULL){
+            int len = 0;
+            printf("");
+            for (int i=0; i<structdef->data.struct1.memberlen; i++){
+                if (strcmp(structdef->data.struct1.members[i].name, ast.data.access.right) == 0){
+                    printf("");
+                    return structdef->data.struct1.members[i].type;
+                }
+            };
+            printf("");
+        }
+    }else if (ast.type == AST_RET){
         return fetch_type(typechecker, (ast.data.ret.ret));
     }else if(ast.type == AST_VAR){
         return find_variable_in_scopes(typechecker, _ast, NULL, 1).type;
@@ -609,6 +635,8 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
     }else if(ast->type == AST_PLUS || ast->type == AST_SUB || ast->type == AST_MUL || ast->type == AST_DIV || ast->type == AST_MODULO){
         typechecker_eat_binary(typechecker, ast);
 
+    }else if(ast->type == AST_ACCESS){
+        ast->typeinfo = fetch_type(typechecker, ast);
     }else if (ast->type == AST_GT || ast->type == AST_GTE || ast->type == AST_LT || ast->type == AST_LTE || ast->type == AST_EQ || ast->type == AST_NEQ){
         typechecker_eat_comparison(typechecker, ast);
     }else if(ast->type == AST_CAST){
