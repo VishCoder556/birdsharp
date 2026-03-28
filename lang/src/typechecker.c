@@ -636,6 +636,14 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         typechecker_eat_binary(typechecker, ast);
 
     }else if(ast->type == AST_ACCESS){
+        AST_TypeInfo leftype = fetch_type(typechecker, ast->data.access.left);
+        if (leftype.ptrnum > 0){
+            AST *old = ast->data.access.left;
+            ast->data.access.left = malloc(sizeof(AST));
+            *ast->data.access.left = (AST){0};
+            ast_unary(ast->data.access.left, AST_DEREF, old);
+        }
+        typechecker_eat(typechecker, ast->data.access.left);
         ast->typeinfo = fetch_type(typechecker, ast);
     }else if (ast->type == AST_GT || ast->type == AST_GTE || ast->type == AST_LT || ast->type == AST_LTE || ast->type == AST_EQ || ast->type == AST_NEQ){
         typechecker_eat_comparison(typechecker, ast);

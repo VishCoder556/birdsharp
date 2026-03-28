@@ -4,14 +4,15 @@
 #include <stdlib.h>
 
 typedef struct {
-    Token in[10];
+    Token *in;
     int inlen;
-    Token out[10];
+    Token *out;
     int outlen;
 } Preprocessor_Define;
 
 typedef struct {
-    Preprocessor_Define defines[10];
+    Preprocessor_Define *defines;
+    int definecap;
     int definelen;
 } Preprocessor_SymbolTable;
 
@@ -58,14 +59,26 @@ void preprocess_define(Tokenizer *tokenizer, int *i) {
 
     tokenizer_remove_at(tokenizer, *i, 3);
 
+    if (preprocess_symtab.definelen >= preprocess_symtab.definecap){
+        preprocess_symtab.definecap += 5;
+        preprocess_symtab.defines = realloc(preprocess_symtab.defines, sizeof(Preprocessor_Define) * preprocess_symtab.definecap);
+    }
     Preprocessor_Define *def = &preprocess_symtab.defines[preprocess_symtab.definelen];
+
+    int incap = 5;
+    int outcap = 5;
+    def->in = malloc(sizeof(Token) * incap);
+    def->out = malloc(sizeof(Token) * outcap);
+
     def->inlen = 0;
     def->outlen = 0;
 
     while (*i < tokenizer->tokenlen && tokenizer->tokens[*i].type != TOKEN_EQ) {
-        if (def->inlen < 10) {
-            def->in[def->inlen++] = tokenizer->tokens[*i];
+        if (def->inlen >= incap){
+            incap += 5;
+            def->in = realloc(def->in, sizeof(Token) * incap);
         }
+        def->in[def->inlen++] = tokenizer->tokens[*i];
         tokenizer_remove_at(tokenizer, *i, 1);
     }
 
@@ -83,9 +96,11 @@ void preprocess_define(Tokenizer *tokenizer, int *i) {
         preprocess_substitute(tokenizer, i);
 
         if (start_val == *i) {
-            if (def->outlen < 10) {
-                def->out[def->outlen++] = tokenizer->tokens[*i];
+            if (def->outlen >= outcap){
+                outcap += 5;
+                def->out = realloc(def->out, sizeof(Token) * outcap);
             }
+            def->out[def->outlen++] = tokenizer->tokens[*i];
             tokenizer_remove_at(tokenizer, *i, 1);
         }
     }
@@ -126,6 +141,8 @@ char preprocess_include(Tokenizer *tokenizer, char *main_file, int i) {
 }
 
 void preprocess(char *main_file, Tokenizer *tokenizer) {
+    preprocess_symtab.definecap = 10;
+    preprocess_symtab.defines = malloc(sizeof(Preprocessor_Define) * preprocess_symtab.definecap);
     if (!tokenizer || !tokenizer->tokens) return;
 
     int i = 0;

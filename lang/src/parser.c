@@ -248,7 +248,7 @@ AST* rotate_to_left(AST* parent) {
 }
 
 void ast_unary(AST *ast, int type, AST *left){
-    ast->type = AST_EXPR;
+    ast->type = type;
     ast->data.expr.left = left;
 }
 void ast_binary(AST *ast, int type, AST *left, AST *right){

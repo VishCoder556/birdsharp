@@ -1,0 +1,14 @@
+#!include "std.bsh"
+
+#!define Hello world! = 0;
+#!define Macros in BirdSharp are pretty simple = 1;
+#!define Make sure you include your semicolon at the end = 2;
+#!define Just like C, BirdSharp uses a search and replace algorithm for defines = 3;
+#!define It also expects that there is an equal-sign after the name = 4;
+#!define And after the equal sign, a semicolon tells it what to replace it with. = 5;
+
+
+
+i32 main(i32 argc, char **argv){
+    return Hello world! // Example of macros
+}
