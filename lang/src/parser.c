@@ -584,7 +584,13 @@ AST *parser_eat_ast(Parser *parser){
         return ast;
     };
     ast->type = AST_UNKNOWN;
-    if (parser->tokens[parser->cur].type == TOKEN_ID){
+    if (parser->tokens[parser->cur].type == TOKEN_IR){
+        fflush(stdout);
+        parser_location(parser, ast);
+        ast_arg(ast, AST_IR, parser->tokens[parser->cur].value);
+        parser_peek(parser);
+        fflush(stdout);
+    }else if (parser->tokens[parser->cur].type == TOKEN_ID){
         if (strcmp(parser->tokens[parser->cur].value, "if") == 0) {
             parser_location(parser, ast);
             ast->type = AST_IF;
@@ -780,7 +786,7 @@ AST *parser_eat_ast(Parser *parser){
             free(ast);
             return NULL;
         }else {
-            error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
+            error_generate_parser("AbruptEndError", "Unknown token found", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->tokens[parser->cur].name);
        }
     }
 

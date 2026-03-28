@@ -760,6 +760,8 @@ void ir_generate_stmnt(void *generator, AST ast){
         generator_write_text(generator, "\n");
         generator_write_text(generator, "}\n");
         free_temp(reg);
+    }else if(ast.type == AST_IR){
+        generator_write_text(generator, ast.data.arg.value);
     }else {
         char *res = ir_generate_expr(generator, ast);
         free_temp(res);

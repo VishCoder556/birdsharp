@@ -261,6 +261,31 @@ char tokenizer_token(Tokenizer *tokenizer){
             tokenizer_append(tokenizer, TOKEN_INT, "true");
         }else if (strcmp(res, "false") == 0){
             tokenizer_append(tokenizer, TOKEN_INT, "true");
+        }else if(strcmp(res, "__ir__") == 0 && tokenizer->tokenlen >= 2){
+            if (tokenizer->tokens[tokenizer->tokenlen-1].type == TOKEN_EXC && tokenizer->tokens[tokenizer->tokenlen-2].type == TOKEN_HASH){
+                tokenizer->cur++;
+                tokenizer->col++;
+                tokenizer_token(tokenizer);
+                if (tokenizer->tokens[tokenizer->tokenlen-1].type != TOKEN_LP){
+                    error_generate_parser("SyntaxError", "Unknown IR block found", tokenizer->line, prevCol, tokenizer->name);
+                }else {
+                    tokenizer->tokenlen -= 3; // Remove them
+                    int stringcap = 200;
+                    fflush(stdout);
+                    char *string = malloc(stringcap);
+                    int stringlen = 0;
+                    while (tokenizer->code[tokenizer->cur] != ')'){
+                        if (stringlen > stringcap){
+                            stringcap += 50;
+                            string = realloc(string, stringcap);
+                        };
+                        string[stringlen++] = tokenizer->code[tokenizer->cur];
+                        tokenizer->cur++;
+                        tokenizer->col++;
+                    };
+                    tokenizer_append(tokenizer, TOKEN_IR, string);
+                };
+            };
         }else {
             tokenizer_append(tokenizer, TOKEN_ID, res);
         }

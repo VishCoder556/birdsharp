@@ -29,7 +29,8 @@ enum TokenType {
     TOKEN_DOT,
     TOKEN_FLOAT,
     TOKEN_PIPE,
-    TOKEN_SEMICOLON
+    TOKEN_SEMICOLON,
+    TOKEN_IR
 };
 typedef struct Token{
     int type;
