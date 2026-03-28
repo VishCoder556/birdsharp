@@ -248,6 +248,8 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
             };
             printf("");
         }
+    }else if(ast.type == AST_SIZEOF){
+        return ast.typeinfo;
     }else if (ast.type == AST_RET){
         return fetch_type(typechecker, (ast.data.ret.ret));
     }else if(ast.type == AST_VAR){
@@ -649,6 +651,25 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         typechecker_eat_comparison(typechecker, ast);
     }else if(ast->type == AST_CAST){
         typechecker_eat_unary(typechecker, ast);
+    }else if(ast->type == AST_SIZEOF){
+        fflush(stdout);
+        int a = 8;
+        for (int i=0; i<typesLen; i++){
+            if (ast->typeinfo.kind == KIND_STRUCT && types[i].kind == KIND_STRUCT){
+                if (strcmp(ast->typeinfo.type, types[i].name) == 0){
+                    a = types[i].length;
+                    break;
+                }
+            }else if (types[i].kind == ast->typeinfo.kind){
+                a = types[i].length;
+                break;
+            }
+        }
+        char string[5];
+        snprintf(string, 5, "%d", a);
+        ast_arg(ast, AST_INT, strdup(string));
+        typeinfo(ast, KIND_CONST, 0);
+        // typechecker_eat(typechecker, ast);
     }else if(ast->type == AST_DEREF){
         typechecker_eat_unary(typechecker, ast);
     }else if(ast->type == AST_REF){

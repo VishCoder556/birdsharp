@@ -37,7 +37,8 @@ typedef enum{
     AST_OR,
     AST_INDEX,
     AST_STRUCT,
-    AST_ACCESS
+    AST_ACCESS,
+    AST_SIZEOF
 }AST_Type;
 
 typedef struct AST AST;

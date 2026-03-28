@@ -503,6 +503,13 @@ AST *parser_eat_expr(Parser *parser){
         ast_arg(ast, AST_CHAR, parser->tokens[parser->cur].value);
         typeinfo(ast, KIND_CHAR, 0);
         parser_peek(parser);
+    }else if(strcmp(parser->tokens[parser->cur].value, "sizeof") == 0){
+        parser_expect(parser, TOKEN_ID);
+        parser_location(parser, ast);
+        ast->type = AST_SIZEOF;
+        parser_expect(parser, TOKEN_LP);
+        parse_type(parser, &ast->typeinfo);
+        parser_expect(parser, TOKEN_RP);
     }else if (parser->tokens[parser->cur].type == TOKEN_ID){
         if (parser->tokens[parser->cur+1].type == TOKEN_LP){
             parser_location(parser, ast);
