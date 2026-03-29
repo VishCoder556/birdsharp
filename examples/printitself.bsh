@@ -1,15 +1,14 @@
 #!include "../code/std.bsh"
 
 int main(){
-    int fd = syscall(0x2000005, "code/main.bsh", 0, 0);
+    int fd = syscall.open("examples/printitself.bsh", 0, 0);
     if (fd == 0){
         print("Error\n")
     }
     char *str = cast(char*, malloc(cast(long, 2000)));
-    syscall(0x2000003, fd, str, 2000)
+    syscall.read(fd, str, 2000)
     print(str);
-    syscall(0x2000006, fd);
-    return 0
+    return fd
 }
 
 

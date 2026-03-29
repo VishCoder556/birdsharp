@@ -306,6 +306,68 @@ void arm64_eat_syscall(Compiler *compiler, AST ast){
     }
 }
 
+char *arm64_eat_lhs(Compiler *compiler, AST ast, int size);
+char *arm64_eat_lhs(Compiler *compiler, AST ast, int size){
+    AST *left = ast.data.opexpr.left;
+    if (left->type == AST_VAR) {
+        if (left->data.var.offset == -1){
+            return left->data.text.value;
+        }else {
+            char string[100];
+            compiler_write_text_line(compiler, "add x22, x29, #-%d", left->data.var.offset);
+            snprintf(string, 100, "[x22]");
+            return strdup(string);
+        }
+    }else if(left->type == AST_REG){
+        AST_Reg reg = left->data.operation.reg;
+        return arm64_change_reg_size(reg.reg, reg.size);
+    } else if(left->type == AST_REF) {
+        char *buf = arm64_eat_expr(compiler, left->data.expr.left, -1);
+        
+        if (strncmp(buf, "rel ", 4) == 0) {
+            char *label = buf + 4;
+            compiler_write_text_line(compiler, "adrp x21, %s@PAGE", label);
+            compiler_write_text_line(compiler, "add x21, x21, %s@PAGEOFF", label);
+        } else if (buf[0] == '[') {
+            char clean_buf[100];
+            strncpy(clean_buf, buf + 1, strlen(buf) - 2);
+            clean_buf[strlen(buf) - 2] = '\0';
+            compiler_write_text_line(compiler, "add x21, %s", clean_buf);
+        } else {
+            compiler_write_text_line(compiler, "mov x21, %s", buf);
+        }
+        return "x21";
+    }else if(left->type == AST_DEREF){
+        AST *leftleft = left->data.expr.left;
+        char *buf = "";
+        bool shortcut = 0;
+        if (leftleft->type == AST_PLUS) {
+            if (is_immediate_value(leftleft->data.expr.right)){
+                shortcut = 1;
+            }
+        }
+        if (!shortcut) {
+            buf = arm64_eat_expr(compiler, leftleft, -1);
+        };
+        char string[100];
+        if (shortcut){
+            char *left1 = arm64_eat_expr(compiler, leftleft->data.expr.left, -1);
+            char *right1 = arm64_eat_expr(compiler, leftleft->data.expr.right, -1);
+            snprintf(string, 100, "[%s, #%s]", left1, right1);
+        }else {
+            if (strchr(buf, '[')){
+                snprintf(string, 100, "%s", buf);
+            }else {
+                snprintf(string, 100, "[%s]", buf);
+            }
+        }
+
+        return strdup(string);
+    }else {
+        ;
+    }
+    return "";
+};
 
 
 char *arm64_eat_expr(Compiler *compiler, AST *ast, int size){
@@ -432,67 +494,6 @@ char *arm64_eat_expr(Compiler *compiler, AST *ast, int size){
     return "";
 }
 
-char *arm64_eat_lhs(Compiler *compiler, AST ast, int size){
-    AST *left = ast.data.opexpr.left;
-    if (left->type == AST_VAR) {
-        if (left->data.var.offset == -1){
-            return left->data.text.value;
-        }else {
-            char string[100];
-            compiler_write_text_line(compiler, "add x21, x29, #-%d", left->data.var.offset);
-            snprintf(string, 100, "[x21]");
-            return strdup(string);
-        }
-    }else if(left->type == AST_REG){
-        AST_Reg reg = left->data.operation.reg;
-        return arm64_change_reg_size(reg.reg, reg.size);
-    } else if(left->type == AST_REF) {
-        char *buf = arm64_eat_expr(compiler, left->data.expr.left, -1);
-        
-        if (strncmp(buf, "rel ", 4) == 0) {
-            char *label = buf + 4;
-            compiler_write_text_line(compiler, "adrp x21, %s@PAGE", label);
-            compiler_write_text_line(compiler, "add x21, x21, %s@PAGEOFF", label);
-        } else if (buf[0] == '[') {
-            char clean_buf[100];
-            strncpy(clean_buf, buf + 1, strlen(buf) - 2);
-            clean_buf[strlen(buf) - 2] = '\0';
-            compiler_write_text_line(compiler, "add x21, %s", clean_buf);
-        } else {
-            compiler_write_text_line(compiler, "mov x21, %s", buf);
-        }
-        return "x21";
-    }else if(left->type == AST_DEREF){
-        AST *leftleft = left->data.expr.left;
-        char *buf = "";
-        bool shortcut = 0;
-        if (leftleft->type == AST_PLUS) {
-            if (is_immediate_value(leftleft->data.expr.right)){
-                shortcut = 1;
-            }
-        }
-        if (!shortcut) {
-            buf = arm64_eat_expr(compiler, leftleft, -1);
-        };
-        char string[100];
-        if (shortcut){
-            char *left1 = arm64_eat_expr(compiler, leftleft->data.expr.left, -1);
-            char *right1 = arm64_eat_expr(compiler, leftleft->data.expr.right, -1);
-            snprintf(string, 100, "[%s, #%s]", left1, right1);
-        }else {
-            if (strchr(buf, '[')){
-                snprintf(string, 100, "%s", buf);
-            }else {
-                snprintf(string, 100, "[%s]", buf);
-            }
-        }
-
-        return strdup(string);
-    }else {
-        ;
-    }
-    return "";
-};
 
 
 void arm64_end(Compiler *compiler) {
@@ -504,8 +505,8 @@ void arm64_end(Compiler *compiler) {
 void arm64_eat_ast(Compiler *compiler, AST ast){
     if (ast.type == AST_MOV){
         AST *right = ast.data.opexpr.right;
-        char *left = arm64_eat_lhs(compiler, ast, ast.typeinfo);
         char *buf = arm64_eat_expr(compiler, right, ast.typeinfo);
+        char *left = arm64_eat_lhs(compiler, ast, ast.typeinfo);
         int typeinfo = ast.typeinfo;
         arm64_move(compiler, left, buf, ast.typeinfo);
     }else if(ast.type == AST_SYSCALL){
