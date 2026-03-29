@@ -508,7 +508,12 @@ AST *parser_eat_expr(Parser *parser){
         parser_location(parser, ast);
         ast->type = AST_SIZEOF;
         parser_expect(parser, TOKEN_LP);
-        parse_type(parser, &ast->typeinfo);
+        if((is_type(parser, parser->tokens[parser->cur]) == 0)){
+            parse_type(parser, &ast->typeinfo);
+        }else {
+            typeinfo(ast, KIND_UNKNOWN, 0);
+            ast->data.expr.left = parser_eat_expr(parser);
+        }
         parser_expect(parser, TOKEN_RP);
     }else if (parser->tokens[parser->cur].type == TOKEN_ID){
         if (parser->tokens[parser->cur+1].type == TOKEN_LP){

@@ -100,6 +100,28 @@ void add_variable_in_global_scope(TC_Variable variable){
     global_scope->variablelen++;
 }
 
+int typeinfo_to_len(AST_TypeInfo type){
+    if (type.ptrnum > 0){
+        return 8;
+    }
+    if (type.kind == KIND_ARRAY){
+        return typeinfo_to_len(*type.data.array.elem_type) * type.data.array.size;
+    }
+    for (int v=0; v<typesLen; v++){
+        if (types[v].kind == type.kind){
+            return types[v].length;
+        };
+    };
+    if (type.type){
+        for (int v=0; v<typesLen; v++){
+            if (strcmp(types[v].name, type.type) == 0){
+                return types[v].length;
+            };
+        };
+    }
+
+    return 0;
+};
 AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast);
 TC_Variable find_variable_in_scopes(Typechecker *typechecker, AST *_ast, int *p, int error){
     AST ast = *_ast;
@@ -362,28 +384,6 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
     return (AST_TypeInfo){"", KIND_UNKNOWN, 0};
 };
 
-int typeinfo_to_len(AST_TypeInfo type){
-    if (type.ptrnum > 0){
-        return 8;
-    }
-    if (type.kind == KIND_ARRAY){
-        return typeinfo_to_len(*type.data.array.elem_type) * type.data.array.size;
-    }
-    for (int v=0; v<typesLen; v++){
-        if (types[v].kind == type.kind){
-            return types[v].length;
-        };
-    };
-    if (type.type){
-        for (int v=0; v<typesLen; v++){
-            if (strcmp(types[v].name, type.type) == 0){
-                return types[v].length;
-            };
-        };
-    }
-
-    return 0;
-};
 
 bool is_immediate(AST *ast){
     switch (ast->type){
@@ -654,13 +654,21 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
     }else if(ast->type == AST_SIZEOF){
         fflush(stdout);
         int a = 8;
+        AST_TypeInfo typeinf = ast->typeinfo;
+        if (typeinf.kind == KIND_UNKNOWN){
+            typeinf = fetch_type(typechecker, ast->data.expr.left);
+        }
         for (int i=0; i<typesLen; i++){
-            if (ast->typeinfo.kind == KIND_STRUCT && types[i].kind == KIND_STRUCT){
-                if (strcmp(ast->typeinfo.type, types[i].name) == 0){
+            if (typeinf.ptrnum > 0){
+                a = 8;
+                break;
+            }
+            if (typeinf.kind == KIND_STRUCT && types[i].kind == KIND_STRUCT){
+                if (strcmp(typeinf.type, types[i].name) == 0){
                     a = types[i].length;
                     break;
                 }
-            }else if (types[i].kind == ast->typeinfo.kind){
+            }else if (types[i].kind == typeinf.kind){
                 a = types[i].length;
                 break;
             }
