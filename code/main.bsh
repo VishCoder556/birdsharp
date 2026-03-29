@@ -1,6 +1,11 @@
 #!include "std.bsh"
 
-#!define A = 5;
+#!define A = 5 #!end
+
+int a(){
+    return 5
+}
+int B = a();
 
 i32 main(i32 argc, char **argv){
     return A
