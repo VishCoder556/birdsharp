@@ -1,8 +1,5 @@
 #!include "std.bsh"
 
-
 i32 main(i32 argc, char **argv){
-    print(int_to_string(10 + 20))
-    print("\n")
-    return 0
+    return cast(i32, cast(bool, 0) || cast(bool, 1))
 }

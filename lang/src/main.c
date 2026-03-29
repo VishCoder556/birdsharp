@@ -220,7 +220,7 @@ int main(int argc, char **argv){
 
 
     char cmd[256];
-    snprintf(cmd, sizeof(cmd), "irc %s %s -o %s", generator->output->filename, "-target arm64-mac", output_file);
+    snprintf(cmd, sizeof(cmd), "irc %s %s -o %s", generator->output->filename, "", output_file);
     system(cmd);
     // snprintf(cmd, sizeof(cmd), "bat %s", generator->output->filename);
     // system(cmd);

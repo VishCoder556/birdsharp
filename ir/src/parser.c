@@ -360,6 +360,25 @@ extr:
         ret(ast1);
     };
     token = parser->tokens[parser->cur];
+    if (token.type == TOKEN_AMP){
+        parser_peek(parser);
+        parser_expect(parser, TOKEN_AMP);
+        AST *ast1 = malloc(sizeof(AST));
+        ast1->type = AST_AND;
+        ast1->data.expr.left = ast;
+        ast1->data.expr.right = parser_eat_expr(parser);
+        ret(ast1);
+    };
+    if (token.type == TOKEN_PIPE){
+        parser_peek(parser);
+        parser_expect(parser, TOKEN_PIPE);
+        AST *ast1 = malloc(sizeof(AST));
+        ast1->type = AST_OR;
+        ast1->data.expr.left = ast;
+        ast1->data.expr.right = parser_eat_expr(parser);
+        ret(ast1);
+    };
+    token = parser->tokens[parser->cur];
     if (token.type == TOKEN_COMMA){
         parser_peek(parser);
         AST *ast1 = malloc(sizeof(AST));

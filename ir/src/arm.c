@@ -122,8 +122,20 @@ Compiler *arm64_init(Reviser *reviser, char *file){
     compiler->templabel = 0;
     compiler->global = reviser->global;
     fprintf(compiler->f, ".text\n.globl main\n");
+    compiler_write_text_line(compiler, "_and:");
+    compiler_write_text_line(compiler, "cmp     w0, 0");
+    compiler_write_text_line(compiler, "ccmp    w1, 0, 4, ne");
+    compiler_write_text_line(compiler, "cset    w0, ne");
+    compiler_write_text_line(compiler, "ret");
+    compiler_write_text_line(compiler, "_or:");
+    compiler_write_text_line(compiler, "orr     w0, w0, w1");
+    compiler_write_text_line(compiler, "cmp     w0, 0");
+    compiler_write_text_line(compiler, "cset    w0, ne");
+    compiler_write_text_line(compiler, "ret");
     return compiler;
 }
+
+
 
 void arm64_close(Compiler *compiler){
     if (target == TARGET_ARM64_MAC){
@@ -411,6 +423,22 @@ char *arm64_eat_expr(Compiler *compiler, AST *ast, int size){
         arm64_compare(compiler, ast);
         compiler_write_text_line(compiler, "cset w8, le");
         return "x8";
+    }else if(ast->type == AST_AND){
+        char *left = arm64_eat_expr(compiler, ast->data.expr.left, -1);
+        arm64_move(compiler, "x0", left, 8);
+
+        char *right = arm64_eat_expr(compiler, ast->data.expr.right, -1);
+        arm64_move(compiler, "x1", right, 8);
+        compiler_write_text_line(compiler, "bl _and");
+        return "x0";
+    }else if(ast->type == AST_OR){
+        char *left = arm64_eat_expr(compiler, ast->data.expr.left, -1);
+        arm64_move(compiler, "x0", left, 8);
+
+        char *right = arm64_eat_expr(compiler, ast->data.expr.right, -1);
+        arm64_move(compiler, "x1", right, 8);
+        compiler_write_text_line(compiler, "bl _or");
+        return "x0";
     }else if(ast->type == AST_ARRAY){
         char string[100];
         string[0] = '\0';

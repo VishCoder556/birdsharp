@@ -408,6 +408,7 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         if (parser->tokens[parser->cur].type == TOKEN_AMP){
             AST *ast2 = malloc(sizeof(AST));
             *ast2 = (AST){0};
+            parser_location(parser, ast2);
             ast2->type = AST_AND;
             ast2->data.expr.left = ast;
             parser_peek(parser);
@@ -423,6 +424,7 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         if (parser->tokens[parser->cur].type == TOKEN_PIPE){
             AST *ast2 = malloc(sizeof(AST));
             *ast2 = (AST){0};
+            parser_location(parser, ast2);
             ast2->type = AST_OR;
             ast2->data.expr.left = ast;
             parser_peek(parser);

@@ -129,6 +129,23 @@ Compiler *x86_64_init(Reviser *reviser, char *file){
     compiler->templabel = 0;
     compiler->global = reviser->global;
     fprintf(compiler->f, "default rel\nBITS 64\nsection .text\nglobal _main\n");
+    compiler_write_text(compiler, "_and:\n");
+    compiler_write_text_line(compiler, "cmp r15, 0");
+    compiler_write_text_line(compiler, "je .L2");
+    compiler_write_text_line(compiler, "cmp r14, 0");
+    compiler_write_text_line(compiler, "je .L2");
+    compiler_write_text_line(compiler, "mov r15, 1");
+    compiler_write_text_line(compiler, "jmp .L3");
+    compiler_write_text(compiler, ".L2:\n");
+    compiler_write_text_line(compiler, "mov r15, 0");
+    compiler_write_text(compiler, ".L3:\n");
+    compiler_write_text_line(compiler, "ret");
+
+    compiler_write_text(compiler, "_or:\n");
+    compiler_write_text_line(compiler, "or r14, r15");
+    compiler_write_text_line(compiler, "cmp r14, 0");
+    compiler_write_text_line(compiler, "setne r15b");
+    compiler_write_text_line(compiler, "ret");
     return compiler;
 }
 
@@ -338,6 +355,20 @@ char *x86_64_eat_expr(Compiler *compiler, AST *ast, int size){
         x86_64_compare(compiler, ast);
         compiler_write_text_line(compiler, "mov r15, 0");
         compiler_write_text_line(compiler, "setne r15b");
+        return "r15";
+    }else if(ast->type == AST_AND){
+        char *left = x86_64_eat_expr(compiler, ast->data.expr.left, -1);
+        char *right = x86_64_eat_expr(compiler, ast->data.expr.right, -1);
+        compiler_write_text_line(compiler, "mov r15, %s", left);
+        compiler_write_text_line(compiler, "mov r14, %s", right);
+        compiler_write_text_line(compiler, "call _and");
+        return "r15";
+    }else if(ast->type == AST_OR){
+        char *left = x86_64_eat_expr(compiler, ast->data.expr.left, -1);
+        char *right = x86_64_eat_expr(compiler, ast->data.expr.right, -1);
+        compiler_write_text_line(compiler, "mov r15, %s", left);
+        compiler_write_text_line(compiler, "mov r14, %s", right);
+        compiler_write_text_line(compiler, "call _or");
         return "r15";
     }else if(ast->type == AST_REF){
         char *buf = x86_64_eat_expr(compiler, ast->data.expr.left, -1);
