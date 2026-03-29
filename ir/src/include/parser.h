@@ -38,8 +38,12 @@ typedef enum{
     AST_LOCAL,
     AST_CONST,
     AST_NOP,
-    AST_AND,
-    AST_OR
+    AST_LAND,
+    AST_LOR,
+    AST_SHL,
+    AST_SHR,
+    AST_BAND,
+    AST_BOR
 }AST_Type;
 
 typedef struct AST AST;

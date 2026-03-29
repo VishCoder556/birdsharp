@@ -325,7 +325,24 @@ void reviser_constant_fold(Reviser *reviser, AST *ast){
             snprintf(string, 100, "%d", l * r);
         }else if (ast->type == AST_DIV){
             snprintf(string, 100, "%d", l / r);
+        }else if (ast->type == AST_MOD){
+            snprintf(string, 100, "%d", l % r);
+        }else if (ast->type == AST_SHL){
+            snprintf(string, 100, "%d", l << r);
+        }else if (ast->type == AST_SHR){
+            snprintf(string, 100, "%d", l >> r);
+        }else if (ast->type == AST_LOR){
+            snprintf(string, 100, "%d", l || r);
+        }else if (ast->type == AST_LAND){
+            snprintf(string, 100, "%d", l && r);
+        }else if (ast->type == AST_BOR){
+            snprintf(string, 100, "%d", l | r);
+        }else if (ast->type == AST_BAND){
+            snprintf(string, 100, "%d", l & r);
         }
+
+
+
         AST *inner = malloc(sizeof(AST));
         inner->data.text.value = strdup(string);
         inner->type = AST_INT;
@@ -457,6 +474,27 @@ void reviser_eat_ast(Reviser *reviser, AST *ast){
         reviser_eat_expr(reviser, ast->data.operation.right);
         reviser_constant_fold(reviser, ast);
     }else if(ast->type == AST_DIV){
+        reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
+    }else if(ast->type == AST_MOD){
+        reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
+    }else if(ast->type == AST_SHL){
+        reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
+    }else if(ast->type == AST_SHR){
+        reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
+    }else if(ast->type == AST_LAND){
+        reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
+    }else if(ast->type == AST_LOR){
+        reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
+    }else if(ast->type == AST_BAND){
+        reviser_eat_expr(reviser, ast->data.operation.right);
+        reviser_constant_fold(reviser, ast);
+    }else if(ast->type == AST_BOR){
         reviser_eat_expr(reviser, ast->data.operation.right);
         reviser_constant_fold(reviser, ast);
     }else if(ast->type == AST_JMP){

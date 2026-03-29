@@ -314,6 +314,14 @@ char *ir_generate_expr(void *generator, AST ast){
         bin_op("mul");
     }else if (ast.type == AST_DIV){
         bin_op("div");
+    }else if (ast.type == AST_SHL){
+        bin_op("shl");
+    }else if (ast.type == AST_SHR){
+        bin_op("shr");
+    }else if (ast.type == AST_BAND){
+        bin_op("and");
+    }else if (ast.type == AST_BOR){
+        bin_op("or");
     }else if(ast.type == AST_INT){
         return ast.data.arg.value;
     }else if(ast.type == AST_CHAR){

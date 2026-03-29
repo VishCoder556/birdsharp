@@ -364,7 +364,7 @@ extr:
         parser_peek(parser);
         parser_expect(parser, TOKEN_AMP);
         AST *ast1 = malloc(sizeof(AST));
-        ast1->type = AST_AND;
+        ast1->type = AST_LAND;
         ast1->data.expr.left = ast;
         ast1->data.expr.right = parser_eat_expr(parser);
         ret(ast1);
@@ -373,7 +373,7 @@ extr:
         parser_peek(parser);
         parser_expect(parser, TOKEN_PIPE);
         AST *ast1 = malloc(sizeof(AST));
-        ast1->type = AST_OR;
+        ast1->type = AST_LOR;
         ast1->data.expr.left = ast;
         ast1->data.expr.right = parser_eat_expr(parser);
         ret(ast1);
@@ -482,51 +482,79 @@ AST *parser_eat_ast(Parser *parser){
                 token = parser->tokens[parser->cur];
                 ast->data.jmpif.reg = parser_eat_expr(parser);
             }
-        }else if(string_compare(token.value, "add", 3) == 0){
+        }else if(strcmp(token.value, "add") == 0){
             ast->type = AST_ADD;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
             ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
-        }else if(string_compare(token.value, "sub", 3) == 0){
+        }else if(strcmp(token.value, "sub") == 0){
             ast->type = AST_SUB;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
             ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
-        }else if(string_compare(token.value, "mul", 3) == 0){
+        }else if(strcmp(token.value, "mul") == 0){
             ast->type = AST_MUL;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
             ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
-        }else if(string_compare(token.value, "div", 3) == 0){
+        }else if(strcmp(token.value, "div") == 0){
             ast->type = AST_DIV;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
             ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
-        }else if(string_compare(token.value, "mod", 3) == 0){
+        }else if(strcmp(token.value, "mod") == 0){
             ast->type = AST_MOD;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
             ast->data.operation.reg = reg_to_num(parser);
             parser_expect(parser, TOKEN_COMMA);
             ast->data.operation.right = parser_eat_expr(parser);
-        }else if(string_compare(token.value, "push", 4) == 0){
+        }else if(strcmp(token.value, "shl") == 0){
+            ast->type = AST_SHL;
+            parser_peek(parser);
+            token = parser->tokens[parser->cur];
+            ast->data.operation.reg = reg_to_num(parser);
+            parser_expect(parser, TOKEN_COMMA);
+            ast->data.operation.right = parser_eat_expr(parser);
+        }else if(strcmp(token.value, "shr") == 0){
+            ast->type = AST_SHR;
+            parser_peek(parser);
+            token = parser->tokens[parser->cur];
+            ast->data.operation.reg = reg_to_num(parser);
+            parser_expect(parser, TOKEN_COMMA);
+            ast->data.operation.right = parser_eat_expr(parser);
+        }else if(strcmp(token.value, "and") == 0){
+            ast->type = AST_BAND;
+            parser_peek(parser);
+            token = parser->tokens[parser->cur];
+            ast->data.operation.reg = reg_to_num(parser);
+            parser_expect(parser, TOKEN_COMMA);
+            ast->data.operation.right = parser_eat_expr(parser);
+        }else if(strcmp(token.value, "or") == 0){
+            ast->type = AST_BOR;
+            parser_peek(parser);
+            token = parser->tokens[parser->cur];
+            ast->data.operation.reg = reg_to_num(parser);
+            parser_expect(parser, TOKEN_COMMA);
+            ast->data.operation.right = parser_eat_expr(parser);
+        }else if(strcmp(token.value, "push") == 0){
             ast->type = AST_PUSH;
             parser_peek(parser);
             ast->data.operation.right = parser_eat_expr(parser);
-        }else if(string_compare(token.value, "pop", 3) == 0){
+        }else if(strcmp(token.value, "pop") == 0){
             ast->type = AST_POP;
             parser_peek(parser);
             token = parser->tokens[parser->cur];
             ast->data.operation.reg = reg_to_num(parser);
-        }else if(string_compare(token.value, "ret", 3) == 0){
+        }else if(strcmp(token.value, "ret") == 0){
             ast->type = AST_RET;
             parser_peek(parser);
         }else {

@@ -39,6 +39,10 @@ TC_Scope *global_scope;
 
 int is_expression(AST ast){
     switch (ast.type){
+        case AST_BOR: return 1;
+        case AST_BAND: return 1;
+        case AST_SHL: return 1;
+        case AST_SHR: return 1;
         case AST_PLUS: return 1;
         case AST_SUB: return 1;
         case AST_MUL: return 1;
@@ -297,7 +301,7 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
             error_generate_parser("FuncError", string, ast.row, ast.col, ast.filename);
         };
         return func.ret;
-    }else if(ast.type == AST_PLUS || ast.type == AST_SUB || ast.type == AST_MUL || ast.type == AST_DIV || ast.type == AST_GT || ast.type == AST_GTE || ast.type == AST_LT || ast.type == AST_LTE || ast.type == AST_EQ || ast.type == AST_NEQ || ast.type == AST_MODULO){
+    }else if(ast.type == AST_PLUS || ast.type == AST_SUB || ast.type == AST_MUL || ast.type == AST_DIV || ast.type == AST_GT || ast.type == AST_GTE || ast.type == AST_LT || ast.type == AST_LTE || ast.type == AST_EQ || ast.type == AST_NEQ || ast.type == AST_MODULO || ast.type == AST_SHL || ast.type == AST_SHR || ast.type == AST_BAND || ast.type == AST_BOR){
 
         char *a = "";
         switch (ast.type){
@@ -312,6 +316,10 @@ AST_TypeInfo fetch_type(Typechecker *typechecker, AST *_ast){
             case AST_EQ: a = "equal to comparison"; break;
             case AST_NEQ: a = "is not equal to comparison"; break;
             case AST_MODULO: a = "modulus operation"; break;
+            case AST_SHL: a = "shift to the left"; break;
+            case AST_SHR: a = "shift to the right"; break;
+            case AST_BAND: a = "bitwise and"; break;
+            case AST_BOR: a = "bitwise and"; break;
             default: a = "unknown expression";
         }
 
@@ -634,7 +642,7 @@ void typechecker_eat(Typechecker *typechecker, AST *ast){
         typechecker_eat_syscall(typechecker, ast);
     }else if(ast->type == AST_RET){
         typechecker_eat_ret(typechecker, ast);
-    }else if(ast->type == AST_PLUS || ast->type == AST_SUB || ast->type == AST_MUL || ast->type == AST_DIV || ast->type == AST_MODULO){
+    }else if(ast->type == AST_PLUS || ast->type == AST_SUB || ast->type == AST_MUL || ast->type == AST_DIV || ast->type == AST_MODULO || ast->type == AST_SHL || ast->type == AST_SHR || ast->type == AST_BOR || ast->type == AST_BAND){
         typechecker_eat_binary(typechecker, ast);
 
     }else if(ast->type == AST_ACCESS){

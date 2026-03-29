@@ -39,7 +39,11 @@ typedef enum{
     AST_STRUCT,
     AST_ACCESS,
     AST_SIZEOF,
-    AST_IR
+    AST_IR,
+    AST_SHL,
+    AST_SHR,
+    AST_BAND,
+    AST_BOR
 }AST_Type;
 
 typedef struct AST AST;

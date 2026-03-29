@@ -356,6 +356,9 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         if (parser->tokens[parser->cur+1].type == TOKEN_EQ){
             parser_peek(parser);
             ast2->type = AST_GTE;
+        }else if(parser->tokens[parser->cur+1].type == TOKEN_GT){
+            parser_peek(parser);
+            ast2->type = AST_SHR;
         };
         ast2->data.expr.left = ast;
         parser_peek(parser);
@@ -370,6 +373,9 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         if (parser->tokens[parser->cur+1].type == TOKEN_EQ){
             parser_peek(parser);
             ast2->type = AST_LTE;
+        }else if(parser->tokens[parser->cur+1].type == TOKEN_LT){
+            parser_peek(parser);
+            ast2->type = AST_SHL;
         };
         ast2->data.expr.left = ast;
         parser_peek(parser);
@@ -404,24 +410,34 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
         };
     }
     if (parser->tokens[parser->cur].type == TOKEN_AMP) {
-        parser_peek(parser);
-        if (parser->tokens[parser->cur].type == TOKEN_AMP){
-            AST *ast2 = malloc(sizeof(AST));
-            *ast2 = (AST){0};
-            parser_location(parser, ast2);
-            ast2->type = AST_AND;
-            ast2->data.expr.left = ast;
-            parser_peek(parser);
-            ast2->data.expr.right = parser_eat_expr(parser);
-            ast2->typeinfo =  (AST_TypeInfo){"", KIND_BOOL, 0};
-            ast = ast2;
-        }else {
-            error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->name);
+        if (parser->cur + 1 < parser->tokenlen){
+            if (parser->tokens[parser->cur+1].type == TOKEN_AMP){
+                parser_peek(parser);
+                AST *ast2 = malloc(sizeof(AST));
+                *ast2 = (AST){0};
+                parser_location(parser, ast2);
+                ast2->type = AST_AND;
+                ast2->data.expr.left = ast;
+                parser_peek(parser);
+                ast2->data.expr.right = parser_eat_expr(parser);
+                ast2->typeinfo =  (AST_TypeInfo){"", KIND_BOOL, 0};
+                ast = ast2;
+            }else {
+                AST *ast2 = malloc(sizeof(AST));
+                *ast2 = (AST){0};
+                parser_location(parser, ast2);
+                ast2->type = AST_BAND;
+                ast2->data.expr.left = ast;
+                parser_peek(parser);
+                ast2->data.expr.right = parser_eat_expr(parser);
+                ast = ast2;
+            }
         }
     };
     if (parser->tokens[parser->cur].type == TOKEN_PIPE){
-        parser_peek(parser);
-        if (parser->tokens[parser->cur].type == TOKEN_PIPE){
+        if (parser->cur + 1 < parser->tokenlen){
+        if (parser->tokens[parser->cur+1].type == TOKEN_PIPE){
+            parser_peek(parser);
             AST *ast2 = malloc(sizeof(AST));
             *ast2 = (AST){0};
             parser_location(parser, ast2);
@@ -432,7 +448,15 @@ AST *parser_eat_binary(Parser *parser, AST *ast){
             ast2->typeinfo =  (AST_TypeInfo){"", KIND_BOOL, 0};
             ast = ast2;
         }else {
-            error_generate_parser("AbruptEndError", "Abrupt end", parser->tokens[parser->cur].row, parser->tokens[parser->cur].col, parser->name);
+            AST *ast2 = malloc(sizeof(AST));
+            *ast2 = (AST){0};
+            parser_location(parser, ast2);
+            ast2->type = AST_BOR;
+            ast2->data.expr.left = ast;
+            parser_peek(parser);
+            ast2->data.expr.right = parser_eat_expr(parser);
+            ast = ast2;
+        }
         }
     }
     return ast;

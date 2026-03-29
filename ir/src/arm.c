@@ -423,7 +423,7 @@ char *arm64_eat_expr(Compiler *compiler, AST *ast, int size){
         arm64_compare(compiler, ast);
         compiler_write_text_line(compiler, "cset w8, le");
         return "x8";
-    }else if(ast->type == AST_AND){
+    }else if(ast->type == AST_LAND){
         char *left = arm64_eat_expr(compiler, ast->data.expr.left, -1);
         arm64_move(compiler, "x0", left, 8);
 
@@ -431,7 +431,7 @@ char *arm64_eat_expr(Compiler *compiler, AST *ast, int size){
         arm64_move(compiler, "x1", right, 8);
         compiler_write_text_line(compiler, "bl _and");
         return "x0";
-    }else if(ast->type == AST_OR){
+    }else if(ast->type == AST_LOR){
         char *left = arm64_eat_expr(compiler, ast->data.expr.left, -1);
         arm64_move(compiler, "x0", left, 8);
 
@@ -602,6 +602,38 @@ void arm64_eat_ast(Compiler *compiler, AST ast){
 
         compiler_write_text_line(compiler, "sdiv x16, x16, x17");
         arm64_move(compiler, reg, "x16", 8);
+    }else if(ast.type == AST_SHL){
+        char *reg = arm64_reg_to_name(ast.data.operation.reg);
+        AST_Reg _reg = ast.data.operation.reg;
+        char *buf = arm64_eat_expr(compiler, ast.data.operation.right, -1);
+        if (strchr(reg, '[')){
+            arm64_move(compiler, "x9", reg, _reg.size);
+            char *l = arm64_change_reg_size(arm64_reg_real_to_num("x9").reg, _reg.size);
+            compiler_write_text_line(compiler, "lsl %s, %s, %s", l, l, buf);
+            arm64_move(compiler, reg, "x9", _reg.size);
+        }else if (arm64_is_real_reg(buf) == 0){
+            AST_Reg _buf = arm64_reg_real_to_num(buf);
+            compiler_write_text_line(compiler, "lsl %s, %s, %s", reg, reg, arm64_change_reg_size(_buf.reg, _reg.size));
+        }else {
+            arm64_move(compiler, "x14", buf, 8);
+            compiler_write_text_line(compiler, "lsl %s, %s, %s", reg, reg, arm64_change_reg_size(arm64_reg_real_to_num("x14").reg, _reg.size));
+        }
+    }else if(ast.type == AST_SHR){
+        char *reg = arm64_reg_to_name(ast.data.operation.reg);
+        AST_Reg _reg = ast.data.operation.reg;
+        char *buf = arm64_eat_expr(compiler, ast.data.operation.right, -1);
+        if (strchr(reg, '[')){
+            arm64_move(compiler, "x9", reg, _reg.size);
+            char *l = arm64_change_reg_size(arm64_reg_real_to_num("x9").reg, _reg.size);
+            compiler_write_text_line(compiler, "lsr %s, %s, %s", l, l, buf);
+            arm64_move(compiler, reg, "x9", _reg.size);
+        }else if (arm64_is_real_reg(buf) == 0){
+            AST_Reg _buf = arm64_reg_real_to_num(buf);
+            compiler_write_text_line(compiler, "lsr %s, %s, %s", reg, reg, arm64_change_reg_size(_buf.reg, _reg.size));
+        }else {
+            arm64_move(compiler, "x14", buf, 8);
+            compiler_write_text_line(compiler, "lsr %s, %s, %s", reg, reg, arm64_change_reg_size(arm64_reg_real_to_num("x14").reg, _reg.size));
+        }
     }else if (ast.type == AST_MOD) {
         char *buf = arm64_eat_expr(compiler, ast.data.operation.right, -1);
         char *reg = arm64_reg_to_name(ast.data.operation.reg);
@@ -613,6 +645,32 @@ void arm64_eat_ast(Compiler *compiler, AST ast){
         compiler_write_text_line(compiler, "msub x15, x15, x17, x16");
 
         arm64_move(compiler, reg, "x15", 8);
+    }else if(ast.type == AST_BAND){
+        char *reg = arm64_reg_to_name(ast.data.operation.reg);
+        AST_Reg _reg = arm64_reg_real_to_num(reg);
+        char *buf = arm64_eat_expr(compiler, ast.data.operation.right, -1);
+        if (strchr(buf, '[')){
+            arm64_move(compiler, "x9", buf, _reg.size);
+            compiler_write_text_line(compiler, "and %s, %s, %s", reg, reg, arm64_change_reg_size(arm64_reg_real_to_num("x9").reg, _reg.size));
+        }else if (arm64_is_real_reg(buf) == 0){
+            AST_Reg _buf = arm64_reg_real_to_num(buf);
+            compiler_write_text_line(compiler, "and %s, %s, %s", reg, reg, arm64_change_reg_size(_buf.reg, _reg.size));
+        }else {
+            compiler_write_text_line(compiler, "and %s, %s, %s", reg, reg, buf);
+        }
+    }else if(ast.type == AST_BOR){
+        char *reg = arm64_reg_to_name(ast.data.operation.reg);
+        AST_Reg _reg = arm64_reg_real_to_num(reg);
+        char *buf = arm64_eat_expr(compiler, ast.data.operation.right, -1);
+        if (strchr(buf, '[')){
+            arm64_move(compiler, "x9", buf, _reg.size);
+            compiler_write_text_line(compiler, "orr %s, %s, %s", reg, reg, arm64_change_reg_size(arm64_reg_real_to_num("x9").reg, _reg.size));
+        }else if (arm64_is_real_reg(buf) == 0){
+            AST_Reg _buf = arm64_reg_real_to_num(buf);
+            compiler_write_text_line(compiler, "orr %s, %s, %s", reg, reg, arm64_change_reg_size(_buf.reg, _reg.size));
+        }else {
+            compiler_write_text_line(compiler, "orr %s, %s, %s", reg, reg, buf);
+        }
     }else if(ast.type == AST_JMP){
         compiler_write_text_line(compiler, "b %s_%s", ast.data.jmpif.label, cur_function);
     }else if(ast.type == AST_JMPIF){
