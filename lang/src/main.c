@@ -137,11 +137,13 @@ char *current_process = "";
 #define clockstart(name) clockend(); clockbegin(name);
 
 
+#define VERSION "v0.0.0"
 char *HELP = 
-"Help for BirdSharp\n\n"
+"Help for BirdSharp "VERSION"\n"
+"USAGE: `bsh [input_file]`\n\n"
 "-o: Specify the output file\n"
-"-h: Print this menu\n"
-"-...: Anything starting with '-' will be treated as a flag that will be sent to the assembler and linker\n";
+"--version: Print the current version\n"
+"-h or --h: Print this menu\n";
 
 int main(int argc, char **argv){
     struct timespec __begin;
@@ -149,6 +151,7 @@ int main(int argc, char **argv){
     argv++;
     char *input_file = "";
     char *output_file = "";
+    fflush(stdout); // This might look stupid, but calling a function helps align or stack to prevent overflows. You'll see this line a lot in the codebase, I just want to make sure that the stack is always aligned in the correct manner.
     while (*argv){
         if (*argv[0] == '-'){
             if(strcmp(*argv, "-o") == 0){
@@ -158,8 +161,12 @@ int main(int argc, char **argv){
                 }else {
                     break;
                 }
-            }else if(strcmp(*argv, "-h") == 0){
+            }else if(strcmp(*argv, "-h") == 0 || strcmp(*argv, "--h") == 0){
                 printf("%s", HELP);
+                return 0;
+            }else if(strcmp(*argv, "--version") == 0){
+                printf("BirdSharp %s\n", VERSION);
+                return 0;
             }
         } else {
             input_file = *argv;
@@ -172,7 +179,7 @@ int main(int argc, char **argv){
     };
 
     if (!input_file || strcmp(input_file, "") == 0){
-        printf("\x1b[1;31merror\x1b[0m: No input file provided");
+        printf("\x1b[1;31merror\x1b[0m: No input file provided\n");
         return -1;
     };
 

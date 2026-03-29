@@ -87,11 +87,6 @@ void preprocess_define(Tokenizer *tokenizer, int *i) {
     }
 
     while (*i < tokenizer->tokenlen) {
-        if (tokenizer->tokens[*i].type == TOKEN_SEMICOLON) {
-            tokenizer_remove_at(tokenizer, *i, 1);
-            break;
-        }
-
         int start_val = *i;
         preprocess_substitute(tokenizer, i);
 
@@ -101,6 +96,14 @@ void preprocess_define(Tokenizer *tokenizer, int *i) {
                 def->out = realloc(def->out, sizeof(Token) * outcap);
             }
             def->out[def->outlen++] = tokenizer->tokens[*i];
+            if (def->outlen >= 3){
+                if (strcmp(def->out[def->outlen-1].value, "end") == 0 && def->out[def->outlen-2].type == TOKEN_EXC && def->out[def->outlen-3].type == TOKEN_HASH) {
+                    fflush(stdout);
+                    tokenizer_remove_at(tokenizer, *i, 1);
+                    def->outlen -= 3;
+                    break;
+                }
+            }
             tokenizer_remove_at(tokenizer, *i, 1);
         }
     }

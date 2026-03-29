@@ -1,4 +1,4 @@
-#!include "std.bsh"
+#!include "../code/std.bsh"
 
 long fibonacci(long n) {
     if (n < 2) {

@@ -1,4 +1,4 @@
-#!include "std.bsh"
+#!include "../code/std.bsh"
 #!mode.safe
 
 i32 main(i32 argc, char **argv){

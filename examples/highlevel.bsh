@@ -1,4 +1,4 @@
-#!include "std.bsh"
+#!include "../code/std.bsh"
 #!autovar on
 
 var fibonacci(var n) {

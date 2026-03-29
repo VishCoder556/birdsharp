@@ -1,4 +1,4 @@
-#!include "std.bsh"
+#!include "../code/std.bsh"
 
 int ir_a1(){
     return 8

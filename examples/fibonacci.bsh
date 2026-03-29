@@ -1,4 +1,4 @@
-#!include "std.bsh"
+#!include "../code/std.bsh"
 
 i64 fibonacci(i64 n) {
     if (n < 2) {

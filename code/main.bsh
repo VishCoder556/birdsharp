@@ -1,5 +1,7 @@
 #!include "std.bsh"
 
+#!define A = 5;
+
 i32 main(i32 argc, char **argv){
-    return sizeof(argv)
+    return A
 }
