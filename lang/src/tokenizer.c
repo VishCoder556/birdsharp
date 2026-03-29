@@ -352,11 +352,15 @@ void add_idx(Token arr[], int *len, int index) {
 }
 
 
-Tokenizer *tokenizer_init(char *input_file){
+Tokenizer *tokenizer_init(char *input_file, int is_input_file){
     Tokenizer *tokenizer = malloc(sizeof(Tokenizer));
     FILE *f = fopen(input_file, "r");
     if (f == NULL){
-        printf("\x1b[1;31merror\x1b[0m: Invalid input file provided\n");
+        if (is_input_file){
+            printf("\x1b[1;31merror\x1b[0m: Invalid input file '%s' provided\n", input_file);
+        }else {
+            printf("\x1b[1;31merror\x1b[0m: Included file '%s' could not be found\n", input_file);
+        }
         exit(-1);
     }
     fseek(f, 0, SEEK_END);

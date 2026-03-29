@@ -120,7 +120,7 @@ char preprocess_include(Tokenizer *tokenizer, char *main_file, int i) {
     char input_file[512];
     snprintf(input_file, sizeof(input_file), "%s/%s", dir, tokenizer->tokens[i + 3].value);
 
-    Tokenizer *tokenizer2 = tokenizer_init(input_file);
+    Tokenizer *tokenizer2 = tokenizer_init(input_file, 0);
     if (tokenizer2 == NULL) return 0;
 
     while (tokenizer_token(tokenizer2) != -1);

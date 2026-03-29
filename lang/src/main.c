@@ -183,7 +183,7 @@ int main(int argc, char **argv){
     clockbegin("Tokenizer");
 
 
-    Tokenizer *tokenizer = tokenizer_init(input_file);
+    Tokenizer *tokenizer = tokenizer_init(input_file, 1);
     while(tokenizer_token(tokenizer) != -1){};
 
     clockstart("Preprocessor");
